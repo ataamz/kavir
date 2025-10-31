@@ -23,7 +23,7 @@ const CONSTANTS = {
   CONTRACT_ADDON: 1000000,
   CREDIT_ROUNDING: 100000000,
   
-  // 💰 ضرایب حالت عادی
+  // ضرایب حالت عادی
   CHEQUE_MULTIPLIERS_DEFAULT: {
     '8':  { INVOICE: 1.072, PREPAY: 0.260519 },
     '12': { INVOICE: 1.104, PREPAY: 0.255603 },
@@ -35,16 +35,25 @@ const CONSTANTS = {
     'bike_10': { INVOICE: 1.088, PREPAY: 0.217600 }
   },
 
-  // 💸 ضرایب حالت تخفیف‌دار (قابل ویرایش آزادانه)
+  // ضرایب حالت تخفیف‌دار
   CHEQUE_MULTIPLIERS_DISCOUNTED: {
     '8':  { INVOICE: 1.042, PREPAY: 0.250000 },
     '12': { INVOICE: 1.074, PREPAY: 0.245000 },
     '16': { INVOICE: 1.106, PREPAY: 0.240000 },
     '20': { INVOICE: 1.138, PREPAY: 0.235000 },
     '24': { INVOICE: 1.17, PREPAY: 0.230000 },
-    // ضرایب برای Bike=1
     'bike_8':  { INVOICE: 1.042, PREPAY: 0.214400 },
     'bike_10': { INVOICE: 1.058, PREPAY: 0.217600 }
+  },
+
+  // ضرایب حالت رفاهی — درست شده
+  WELFARE_MULTIPLIERS_DEFAULT: {
+    '24': 1.3,      // 24 ماهه
+    '30': 1.3624    // 30 ماهه
+  },
+  WELFARE_MULTIPLIERS_DISCOUNTED: {
+    '24': 1.27,
+    '30': 1.3324
   },
 
   GUARANTEE_FACTOR: 0.25,
@@ -52,14 +61,12 @@ const CONSTANTS = {
   BIKE_CASH_PRICE_THRESHOLD: 100000000
 };
 
-// ✅ تابعی که همیشه ضرایب درست را برمی‌گرداند
+// پراکسی داینامیک برای ضرایب چکی
 function getChequeMultipliers() {
   return discountEnabled
     ? CONSTANTS.CHEQUE_MULTIPLIERS_DISCOUNTED
     : CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT;
 }
-
-// ✅ پراکسی داینامیک برای دسترسی مستقیم به ضرایب فعال
 const CHEQUE_MULTIPLIERS = new Proxy({}, {
   get(target, prop) {
     const active = getChequeMultipliers();
@@ -67,7 +74,17 @@ const CHEQUE_MULTIPLIERS = new Proxy({}, {
   }
 });
 
-// Helper function to get base price factor based on discount state
+// پراکسی برای ضرایب رفاهی
+const WELFARE_MULTIPLIERS = new Proxy({}, {
+  get(target, prop) {
+    const active = discountEnabled 
+      ? CONSTANTS.WELFARE_MULTIPLIERS_DISCOUNTED 
+      : CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT;
+    return active[prop];
+  }
+});
+
+// Helper function
 function getBasePriceFactor() {
   return discountEnabled ? CONSTANTS.BASE_PRICE_FACTOR_DISCOUNTED : CONSTANTS.BASE_PRICE_FACTOR;
 }
@@ -78,7 +95,7 @@ const modal = document.getElementById('modal');
 const modalContent = document.getElementById('modalContent');
 const closeModal = document.getElementById('closeModal');
 
-// Insert a small checkbox control near the drop area (or before grid)
+// سوئیچ تخفیف
 (function insertDiscountControl(){
   const html = `
     <div id="discountControl" class="mb-4 mt-4 px-2 text-sm">
@@ -99,10 +116,10 @@ const closeModal = document.getElementById('closeModal');
     function updateSwitchAppearance(checked){
       if(!sw) return;
       if(checked){
-        sw.style.backgroundColor = '#4f46e5'; // indigo-600
+        sw.style.backgroundColor = '#4f46e5';
         sw.innerHTML = '<span style="position:absolute;right:3px;top:50%;transform:translateY(-50%);width:18px;height:18px;background:white;border-radius:50%"></span>';
       } else {
-        sw.style.backgroundColor = '#cfcfcfff'; // gray-200
+        sw.style.backgroundColor = '#cfcfcfff';
         sw.innerHTML = '<span style="position:absolute;left:3px;top:50%;transform:translateY(-50%);width:18px;height:18px;background:white;border-radius:50%"></span>';
       }
     }
@@ -114,7 +131,7 @@ const closeModal = document.getElementById('closeModal');
         renderProducts(lastProducts || []);
       });
     }
-  }catch(e){ /* ignore DOM insertion failures */ }
+  }catch(e){}
 })();
 
 function showModal(html){
@@ -192,10 +209,10 @@ function getInstallmentDetails(price){
   return { months, factor, raw, rounded };
 }
 
+// تابع ساخت HTML مودال — اصلاح شده برای نمایش کد + قیمت خام
 function buildModalHtml(title, price, showPrice = true, forceTabs = false, code = null, rawPrice = null, originalPrice = null, isBike = false){
   const details = getInstallmentDetails(price);
   const months = details.months;
-  const factor = details.factor;
   const installmentRounded = details.rounded;
 
   const creditPrice = Math.ceil(price / CONSTANTS.CREDIT_ROUNDING) * CONSTANTS.CREDIT_ROUNDING;
@@ -204,7 +221,6 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   const sideRaw = creditPrice * (CONSTANTS.SIDE_COST_FACTORS.BLOCK + CONSTANTS.SIDE_COST_FACTORS.CONTRACT);
   const sideWithAdd = sideRaw + CONSTANTS.CONTRACT_ADDON;
   const sideRounded = roundUpToMillion(sideWithAdd);
-
   const sideRow = `<div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(sideRounded,0)} ریال</div></div>`;
 
   let cashPriceRow = '';
@@ -215,11 +231,18 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   if(discountEnabled && originalPrice !== null && originalPrice !== undefined && originalPrice !== price){
     originalPriceRow = `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div class="font-medium text-gray-800">${fmtNumber(originalPrice,0)} ریال</div></div>`;
   } else {
-    originalPriceRow = ''; // Explicitly set to empty when discount is not enabled
+    originalPriceRow = '';
   }
 
+  // نمایش کد + قیمت خام (در صورت وجود)
+  const codeAndRawPrice = (code && rawPrice) ? `
+    <div class="flex justify-between text-sm text-gray-600 mb-2">
+      <div>${escapeHtml(code)}</div>
+      <div class="font-mono">${fmtNumber(rawPrice, 0)}</div>
+    </div>
+  ` : (code ? `<div class="text-sm text-gray-600 mb-2">${escapeHtml(code)}</div>` : '');
+
   if(isBike){
-    // فقط خرید چکی برای محصولات Bike=1، بدون مبلغ چک ضمانت و قیمت نقدی
     const show10Months = price >= CONSTANTS.BIKE_CASH_PRICE_THRESHOLD;
     const chequeContentHtml = `
       <div id="tabChequeContent" class="mt-4">
@@ -236,8 +259,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
         ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
       </div>
     `;
-    const codeUnderTitle = code ? `<div class="text-sm text-gray-600 mb-2">${escapeHtml(code)}</div>` : '';
-    return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeUnderTitle}${chequeContentHtml}`;
+    return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeAndRawPrice}${chequeContentHtml}`;
   }
 
   const mainRows = `
@@ -261,6 +283,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
         <button id="tab24" class="px-3 py-2 bg-indigo-600 text-white rounded">24 ماه</button>
         <button id="tab36" class="px-3 py-2 bg-white text-gray-700 rounded border">36 ماه</button>
         <button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">خرید چکی</button>
+        <button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button>
       </div>
       <div id="tab24Content">
         <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div class="font-medium text-gray-800">${fmtNumber(inst24,0)} ریال</div></div>
@@ -293,10 +316,21 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
         <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
         ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
       </div>
+      <div id="tabWelfareContent" class="hidden mt-4">
+        <div class="mb-3">
+          <label class="text-sm text-gray-700 block mb-1">نحوه خرید رفاهی</label>
+          <select id="welfareMode" class="w-full border px-2 py-1 rounded">
+            <option value="24">24 ماهه</option>
+            <option value="30" selected>30 ماهه</option>
+          </select>
+        </div>
+        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="welfareInvoice" class="font-medium text-gray-800">-</div></div>
+        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="welfareInstallment" class="font-medium text-gray-800">-</div></div>
+        <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="welfareGuarantee" class="font-medium text-gray-800">-</div></div>
+        ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="welfareOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
+      </div>
     `;
-
-    const codeUnderTitle = code ? `<div class="text-sm text-gray-600 mb-2">${escapeHtml(code)}</div>` : '';
-    return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeUnderTitle}${tabHtml}`;
+    return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeAndRawPrice}${tabHtml}`;
   }
 
   let extraRows = '';
@@ -305,10 +339,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
     extraRows = `<div class="flex justify-between py-2"><div class="text-base font-semibold text-sm text-gray-600">اقساط 36 ماهه</div><div class="text-base font-semibold text-gray-800 ">${fmtNumber(v36,0)} ریال</div></div>`;
   }
 
-  const separator = extraRows ? `` : '';
-
-  const codeUnderTitle = code ? `<div class="text-sm text-gray-600 mb-2">${escapeHtml(code)}</div>` : '';
-  const chequeButtonHtml = rawPrice ? `<div class="flex gap-2 mb-4"><button id="tab36Single" class="px-3 py-2 bg-indigo-600 text-white rounded border">36 ماه</button><button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">خرید چکی</button></div>` : '';
+  const chequeButtonHtml = rawPrice ? `<div class="flex gap-2 mb-4"><button id="tab36Single" class="px-3 py-2 bg-indigo-600 text-white rounded border">36 ماه</button><button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">خرید چکی</button><button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button></div>` : '';
   const chequeContentHtml = rawPrice ? `
     <div id="tabChequeContent" class="hidden mt-4">
       <div class="mb-3">
@@ -323,14 +354,30 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
       </div>
       <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-medium text-gray-800">-</div></div>
       <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">پیش پرداخت</div><div id="chequePrepay" class="font-medium text-gray-800">-</div></div>
-      <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
       <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
       ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
     </div>
   ` : '';
 
-  const mainWrapper = `<div id="mainRowsContent">${mainRows}${separator}${extraRows}</div>`;
-  return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeUnderTitle}${chequeButtonHtml}${chequeContentHtml}${mainWrapper}`;
+  const welfareContentHtml = rawPrice ? `
+    <div id="tabWelfareContent" class="hidden mt-4">
+      <div class="mb-3">
+        <label class="text-sm text-gray-700 block mb-1">نحوه خرید رفاهی</label>
+        <select id="welfareMode" class="w-full border px-2 py-1 rounded">
+          <option value="24">24 ماهه</option>
+          <option value="30" selected>30 ماهه</option>
+        </select>
+      </div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="welfareInvoice" class="font-medium text-gray-800">-</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="welfareInstallment" class="font-medium text-gray-800">-</div></div>
+      <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="welfareGuarantee" class="font-medium text-gray-800">-</div></div>
+      ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="welfareOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
+    </div>
+  ` : '';
+
+  const mainWrapper = `<div id="mainRowsContent">${mainRows}${extraRows}</div>`;
+  return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeAndRawPrice}${chequeButtonHtml}${chequeContentHtml}${welfareContentHtml}${mainWrapper}`;
 }
 
 function renderProducts(products){
@@ -376,12 +423,12 @@ function renderProducts(products){
         <div class="text-base text-gray-900">${escapeHtml(name)}</div>
       </div>`;
     card.addEventListener('click', ()=>{
-      const rawPrice = (p.Price || p.price || '').toString();
-      const cleaned = (rawPrice || '').replace(/[,\s]/g, '').replace(/[^0-9.\-]/g, '');
+      const rawPriceStr = (p.Price || p.price || '').toString();
+      const cleaned = rawPriceStr.replace(/[,\s]/g, '').replace(/[^0-9.\-]/g, '');
       const numericPrice = parseFloat(cleaned) || 0;
       const priceToUse = numericPrice;
       const basePrice = priceToUse * getBasePriceFactor();
-      const originalBasePrice = discountEnabled ? numericPrice * CONSTANTS.BASE_PRICE_FACTOR : null; // Only set if discount is enabled
+      const originalBasePrice = discountEnabled ? numericPrice * CONSTANTS.BASE_PRICE_FACTOR : null;
       const codeVal = (p.Code || p.code || p['Code'] || p['code'] || '').toString().trim();
       const rawPriceVal = numericPrice;
       const isBike = (p.Bike || p.bike || p['Bike'] || p['bike'] || '').toString().trim() === '1';
@@ -456,60 +503,154 @@ function renderProducts(products){
           }
 
           chequeMode.addEventListener('change', computeCheque);
-          computeCheque(); // محاسبه اولیه مقادیر
+          computeCheque();
+        }
 
-          if(!isBike){
-            const tab24 = document.getElementById('tab24');
-            const tab36 = document.getElementById('tab36');
-            const t24c = document.getElementById('tab24Content');
-            const t36c = document.getElementById('tab36Content');
-            const tabCheque = document.getElementById('tabCheque');
-            const tab36Single = document.getElementById('tab36Single');
-            const mainRowsContent = document.getElementById('mainRowsContent');
+        
+          function computeWelfare(){
+          const mode = document.getElementById('welfareMode')?.value;
+          if(!mode) return;
 
-            if(tab24 && tab36 && t24c && t36c){
-              tab24.addEventListener('click', ()=>{
-                tabCheque.classList.add('border');
-                tab24.classList.add('bg-indigo-600','text-white'); tab24.classList.remove('bg-white','text-gray-700','border');
-                tab36.classList.remove('bg-indigo-600','text-white'); tab36.classList.add('bg-white','text-gray-700','border');
-                tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white');
-                t24c.classList.remove('hidden'); t36c.classList.add('hidden');
-                const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
-              });
-              tab36.addEventListener('click', ()=>{
-                tabCheque.classList.add('border');
-                tab36.classList.add('bg-indigo-600','text-white'); tab36.classList.remove('bg-white','text-gray-700','border');
-                tab24.classList.remove('bg-indigo-600','text-white'); tab24.classList.add('bg-white','text-gray-700','border');
-                tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white');
-                t36c.classList.remove('hidden'); t24c.classList.add('hidden');
-                const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
-              });
-              if(tabCheque){
-                tabCheque.addEventListener('click', ()=>{
-                  tabCheque.classList.add('bg-indigo-600','text-white'); tabCheque.classList.remove('bg-white','text-gray-700','border');
-                  tab24.classList.remove('bg-indigo-600','text-white'); tab24.classList.add('bg-white','text-gray-700','border');
-                  tab36.classList.remove('bg-indigo-600','text-white'); tab36.classList.add('bg-white','text-gray-700','border');
-                  t24c.classList.add('hidden'); t36c.classList.add('hidden');
-                  const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.remove('hidden');
-                });
+          const invoiceMultiplier = WELFARE_MULTIPLIERS[mode];
+          const srcRaw = rawPriceVal;
+          const invoice = srcRaw * invoiceMultiplier;
+          const months = parseInt(mode, 10);
+          let installmentRaw = invoice / months;
+
+          // تابع گرد کردن (همانند تب چکی)
+          function roundSpecial(n){
+            const abs = Math.abs(Math.floor(n));
+            const s = abs.toString();
+            const len = s.length;
+            if(len === 7){
+              const prefix = s.slice(0,2);
+              return Math.sign(n) * parseInt(prefix + '0'.repeat(5), 10);
+            }
+            if(len === 8){
+              const prefix = s.slice(0,2);
+              return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
+            }
+            if(len === 9){
+              const prefix = s.slice(0,3);
+              return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
+            }
+            if(len === 10){
+              const prefix = s.slice(0,3);
+              return Math.sign(n) * parseInt(prefix + '0'.repeat(7), 10);
+            }
+            return Math.round(n);
+          }
+
+          const installmentRounded = roundSpecial(installmentRaw);
+
+          // تغییر مهم: چک ضمانت = فاکتور × 1.25 → گرد با roundSpecial
+          const guaranteeRaw = invoice * 1.25;
+          const guaranteeRounded = roundSpecial(guaranteeRaw); // اینجا تغییر کرد
+
+          const welfareInvoice = document.getElementById('welfareInvoice');
+          const welfareInstallment = document.getElementById('welfareInstallment');
+          const welfareGuarantee = document.getElementById('welfareGuarantee');
+          const welfareOriginal = document.getElementById('welfareOriginalPrice');
+
+          if(welfareInvoice) welfareInvoice.textContent = fmtNumber(invoice, 0) + ' ریال';
+          if(welfareInstallment) welfareInstallment.textContent = fmtNumber(installmentRounded, 0) + ' ریال';
+          if(welfareGuarantee) welfareGuarantee.textContent = fmtNumber(guaranteeRounded, 0) + ' ریال';
+          if(welfareOriginal && discountEnabled){
+            const origMult = CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT[mode];
+            const origInvoice = srcRaw * origMult;
+            welfareOriginal.textContent = fmtNumber(origInvoice, 0) + ' ریال';
+          }
+        }
+
+        const welfareMode = document.getElementById('welfareMode');
+        const tabWelfare = document.getElementById('tabWelfare');
+        const tabWelfareContent = document.getElementById('tabWelfareContent');
+
+        if(welfareMode && tabWelfare){
+          welfareMode.addEventListener('change', computeWelfare);
+
+          tabWelfare.addEventListener('click', ()=>{
+            const tabs = ['tab36Single', 'tabCheque', 'tab24', 'tab36'];
+            tabs.forEach(id => {
+              const el = document.getElementById(id);
+              if(el){
+                el.classList.remove('bg-indigo-600','text-white');
+                el.classList.add('bg-white','text-gray-700','border');
               }
-            }
-            if(tab36Single){
-              tab36Single.addEventListener('click', ()=>{
-                if(mainRowsContent) mainRowsContent.classList.remove('hidden');
-                const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
-                tab36Single.classList.add('bg-indigo-600','text-white'); tab36Single.classList.remove('bg-white','text-gray-700','border');
-                tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white'); tabCheque && tabCheque.classList.add('bg-white','text-gray-700','border');
-              });
-            }
+            });
+            tabWelfare.classList.add('bg-indigo-600','text-white');
+            tabWelfare.classList.remove('bg-white','text-gray-700','border');
+
+            ['mainRowsContent', 'tabChequeContent', 'tab24Content', 'tab36Content'].forEach(id => {
+              const el = document.getElementById(id);
+              if(el) el.classList.add('hidden');
+            });
+            if(tabWelfareContent) tabWelfareContent.classList.remove('hidden');
+
+            computeWelfare();
+          });
+
+          setTimeout(computeWelfare, 10);
+        }
+
+        if(!isBike){
+          const tab24 = document.getElementById('tab24');
+          const tab36 = document.getElementById('tab36');
+          const t24c = document.getElementById('tab24Content');
+          const t36c = document.getElementById('tab36Content');
+          const tabCheque = document.getElementById('tabCheque');
+          const tab36Single = document.getElementById('tab36Single');
+          const mainRowsContent = document.getElementById('mainRowsContent');
+
+          if(tab24 && tab36 && t24c && t36c){
+            tab24.addEventListener('click', ()=>{
+              tabCheque.classList.add('border');
+              tab24.classList.add('bg-indigo-600','text-white'); tab24.classList.remove('bg-white','text-gray-700','border');
+              tab36.classList.remove('bg-indigo-600','text-white'); tab36.classList.add('bg-white','text-gray-700','border');
+              tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white');
+              t24c.classList.remove('hidden'); t36c.classList.add('hidden');
+              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
+              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
+            });
+            tab36.addEventListener('click', ()=>{
+              tabCheque.classList.add('border');
+              tab36.classList.add('bg-indigo-600','text-white'); tab36.classList.remove('bg-white','text-gray-700','border');
+              tab24.classList.remove('bg-indigo-600','text-white'); tab24.classList.add('bg-white','text-gray-700','border');
+              tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white');
+              t36c.classList.remove('hidden'); t24c.classList.add('hidden');
+              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
+              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
+            });
             if(tabCheque){
               tabCheque.addEventListener('click', ()=>{
-                const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.remove('hidden');
-                if(mainRowsContent) mainRowsContent.classList.add('hidden');
                 tabCheque.classList.add('bg-indigo-600','text-white'); tabCheque.classList.remove('bg-white','text-gray-700','border');
-                tab36Single && tab36Single.classList.remove('bg-indigo-600','text-white'); tab36Single && tab36Single.classList.add('bg-white','text-gray-700','border');
+                tab24.classList.remove('bg-indigo-600','text-white'); tab24.classList.add('bg-white','text-gray-700','border');
+                tab36.classList.remove('bg-indigo-600','text-white'); tab36.classList.add('bg-white','text-gray-700','border');
+                t24c.classList.add('hidden'); t36c.classList.add('hidden');
+                const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.remove('hidden');
+                const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
               });
             }
+          }
+          if(tab36Single){
+            tab36Single.addEventListener('click', ()=>{
+              if(mainRowsContent) mainRowsContent.classList.remove('hidden');
+              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
+              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
+              tab36Single.classList.add('bg-indigo-600','text-white'); tab36Single.classList.remove('bg-white','text-gray-700','border');
+              tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white'); tabCheque && tabCheque.classList.add('bg-white','text-gray-700','border');
+              tabWelfare && tabWelfare.classList.remove('bg-indigo-600','text-white'); tabWelfare && tabWelfare.classList.add('bg-white','text-gray-700','border');
+            });
+          }
+          if(tabCheque){
+            tabCheque.addEventListener('click', ()=>{
+              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.remove('hidden');
+              if(mainRowsContent) mainRowsContent.classList.add('hidden');
+              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
+              tabCheque.classList.add('bg-indigo-600','text-white'); tabCheque.classList.remove('bg-white','text-gray-700','border');
+              tab36Single && tab36Single.classList.remove('bg-indigo-600','text-white'); tab36Single && tab36Single.classList.add('bg-white','text-gray-700','border');
+              tabWelfare && tabWelfare.classList.remove('bg-indigo-600','text-white'); tabWelfare && tabWelfare.classList.add('bg-white','text-gray-700','border');
+            });
           }
         }
       }, 60);
@@ -621,10 +762,8 @@ function loadSheetJS(){
   });
 }
 
-// Only use embedded data (no upload, no fetch)
 const tryLoadEmbedded = async () => {
   if(typeof EMBEDDED_CSV === 'undefined' && typeof EMBEDDED_XLSX_BASE64 === 'undefined'){
-    // try to dynamically load scripts/embedded_list.js (non-fatal if missing)
     const tryLoadScript = (src) => new Promise((res)=>{
       try{
         const s = document.createElement('script');
@@ -657,12 +796,10 @@ const tryLoadEmbedded = async () => {
     renderProducts(objs);
     return;
   }
-  // If nothing found, show empty
   renderProducts([]);
 };
 
 tryLoadEmbedded();
-
 renderProducts([]);
 
 document.addEventListener('keydown', (e)=>{
