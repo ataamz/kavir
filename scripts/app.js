@@ -282,7 +282,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
       <div class="flex gap-2 mb-4">
         <button id="tab24" class="px-3 py-2 bg-indigo-600 text-white rounded">24 ماه</button>
         <button id="tab36" class="px-3 py-2 bg-white text-gray-700 rounded border">36 ماه</button>
-        <button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">خرید چکی</button>
+        <button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">چکی</button>
         <button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button>
       </div>
       <div id="tab24Content">
@@ -339,7 +339,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
     extraRows = `<div class="flex justify-between py-2"><div class="text-base font-semibold text-sm text-gray-600">اقساط 36 ماهه</div><div class="text-base font-semibold text-gray-800 ">${fmtNumber(v36,0)} ریال</div></div>`;
   }
 
-  const chequeButtonHtml = rawPrice ? `<div class="flex gap-2 mb-4"><button id="tab36Single" class="px-3 py-2 bg-indigo-600 text-white rounded border">36 ماه</button><button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">خرید چکی</button><button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button></div>` : '';
+  const chequeButtonHtml = rawPrice ? `<div class="flex gap-2 mb-4"><button id="tab36Single" class="px-3 py-2 bg-indigo-600 text-white rounded border">36 ماه</button><button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">چکی</button><button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button></div>` : '';
   const chequeContentHtml = rawPrice ? `
     <div id="tabChequeContent" class="hidden mt-4">
       <div class="mb-3">
@@ -817,3 +817,4 @@ document.addEventListener('keydown', (event) => {
         }
     }
 });
+
