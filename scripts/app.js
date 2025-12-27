@@ -271,10 +271,10 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   ${originalPriceRow}`;
 
   if(forceTabs && price <= CONSTANTS.PRICE_THRESHOLD){
-    const inst24 = roundUpToMillion(price * CONSTANTS.INSTALLMENT_FACTORS.LOW);
+    const inst24 = price * CONSTANTS.INSTALLMENT_FACTORS.LOW;
     const credit24 = Math.ceil(price / CONSTANTS.CREDIT_ROUNDING) * CONSTANTS.CREDIT_ROUNDING;
     const side24 = roundUpToMillion((credit24 * (CONSTANTS.SIDE_COST_FACTORS.BLOCK + CONSTANTS.SIDE_COST_FACTORS.CONTRACT)) + CONSTANTS.CONTRACT_ADDON);
-    const inst36 = roundUpToMillion(price * CONSTANTS.INSTALLMENT_FACTORS.HIGH);
+    const inst36 = price * CONSTANTS.INSTALLMENT_FACTORS.HIGH;
     const credit36 = CONSTANTS.FIXED_CREDIT_36M;
     const side36 = roundUpToMillion((credit36 * (CONSTANTS.SIDE_COST_FACTORS.BLOCK + CONSTANTS.SIDE_COST_FACTORS.CONTRACT)) + CONSTANTS.CONTRACT_ADDON);
 
@@ -335,7 +335,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
 
   let extraRows = '';
   if(price <= CONSTANTS.PRICE_THRESHOLD){
-    const v36 = roundUpToMillion(price * CONSTANTS.INSTALLMENT_FACTORS.HIGH);
+    const v36 = price * CONSTANTS.INSTALLMENT_FACTORS.HIGH;
     extraRows = `<div class="flex justify-between py-2"><div class="text-base font-semibold text-sm text-gray-600">اقساط 36 ماهه</div><div class="text-base font-semibold text-gray-800 ">${fmtNumber(v36,0)} ریال</div></div>`;
   }
 
@@ -817,4 +817,5 @@ document.addEventListener('keydown', (event) => {
         }
     }
 });
+
 
