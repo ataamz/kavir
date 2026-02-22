@@ -1,26 +1,39 @@
-// Discount state
 let discountEnabled = false;
 let lastProducts = [];
 
-// تعریف مقادیر پایه
 const CONSTANTS = {
-  DISCOUNT_FACTOR: 0.97, // 3% discount
-  BASE_PRICE_FACTOR: 1.072, // Default base price multiplier
-  BASE_PRICE_FACTOR_DISCOUNTED: 1.042, // Base price multiplier when discount is enabled
+	DISCOUNT_PERCENT: 5, //برای تغییر تخفیف فقط همین عدد را تغییر دهید
+	get DISCOUNT_FACTOR() {
+    return 1 - (this.DISCOUNT_PERCENT / 100);
+  },
+  BASE_PRICE_FACTOR: 1.072,
+  get BASE_PRICE_FACTOR_DISCOUNTED() {
+    return this.BASE_PRICE_FACTOR - (this.DISCOUNT_PERCENT / 100);
+  },
   PRICE_THRESHOLD: 2000000000,
+  // سقف‌های جدید
+  THRESHOLD_A: 5000000000,              // ۵ میلیارد
+  THRESHOLD_B: 7600000000,              // ۷٫۶ میلیارد
+  
+  // اعتبار ثابت در حالت‌های خاص
+  FIXED_CREDIT_30M_MID: 5100000000,     // برای تب ۳۰ در بازه <۵ میلیارد
+  FIXED_CREDIT_36M_MID: 7610000000,     // برای تب ۳۶ در بازه <۵ و بین ۵ تا ۷٫۶
+  
   INSTALLMENT_FACTORS: {
-    LOW: 0.05241,
-    HIGH: 0.03844
+    LOW: 0.052409654285714286,
+	MID: 0.044007776364,
+    HIGH: 0.038436601647058824
   },
   INSTALLMENT_MONTHS: {
     LOW: 24,
+	MID: 30,
     HIGH: 36
   },
   SIDE_COST_FACTORS: {
     BLOCK: 0.06061125,
     CONTRACT: 0.005158875
   },
-  CONTRACT_ADDON: 1000000,
+  CONTRACT_ADDON: 10000000,
   CREDIT_ROUNDING: 100000000,
   
   // ضرایب حالت عادی
@@ -34,26 +47,11 @@ const CONSTANTS = {
     'bike_8':  { INVOICE: 1.072, PREPAY: 0.214400 },
     'bike_10': { INVOICE: 1.088, PREPAY: 0.217600 }
   },
-
-  // ضرایب حالت تخفیف‌دار
-  CHEQUE_MULTIPLIERS_DISCOUNTED: {
-    '8':  { INVOICE: 1.042, PREPAY: 0.250000 },
-    '12': { INVOICE: 1.074, PREPAY: 0.245000 },
-    '16': { INVOICE: 1.106, PREPAY: 0.240000 },
-    '20': { INVOICE: 1.138, PREPAY: 0.235000 },
-    '24': { INVOICE: 1.17, PREPAY: 0.230000 },
-    'bike_8':  { INVOICE: 1.042, PREPAY: 0.214400 },
-    'bike_10': { INVOICE: 1.058, PREPAY: 0.217600 }
-  },
-
-  // ضرایب حالت رفاهی — درست شده
+  
+    // ضرایب حالت رفاهی — بدون تخفیف
   WELFARE_MULTIPLIERS_DEFAULT: {
     '24': 1.3,      // 24 ماهه
     '30': 1.3624    // 30 ماهه
-  },
-  WELFARE_MULTIPLIERS_DISCOUNTED: {
-    '24': 1.27,
-    '30': 1.3324
   },
 
   GUARANTEE_FACTOR: 0.25,
@@ -61,12 +59,87 @@ const CONSTANTS = {
   BIKE_CASH_PRICE_THRESHOLD: 100000000
 };
 
-// پراکسی داینامیک برای ضرایب چکی
+function buildChequeMultipliersDiscounted(defaultMultipliers, discountFactor) {
+  const discountDelta = 1 - discountFactor;
+  const discountPercent = discountDelta * 100;
+  const result = {};
+  
+  for (const [key, values] of Object.entries(defaultMultipliers)) {
+    const discountedInvoice = values.INVOICE - discountDelta;
+    
+    const month = key.startsWith('bike_') 
+      ? parseInt(key.replace('bike_', ''), 10) 
+      : parseInt(key, 10);
+    
+    const defaultPrepay = values.PREPAY;
+    
+    const baseReductionRate = 0.0035;
+    const monthlyIncreaseRate = 0.0002;
+    
+    const monthsFromEight = month - 8;
+    const reductionRate = baseReductionRate + (monthsFromEight * monthlyIncreaseRate);
+    const totalReduction = discountPercent * reductionRate;
+    
+    let discountedPrepay = defaultPrepay - totalReduction;
+    
+    const minPrepay = key.startsWith('bike_') ? 0.18 : 0.20;
+    discountedPrepay = Math.max(discountedPrepay, minPrepay);
+    
+    result[key] = {
+      INVOICE: Number(discountedInvoice.toFixed(3)),
+      PREPAY: Number(discountedPrepay.toFixed(6))
+    };
+  }
+  
+  return result;
+}
+
+function getWelfareMultipliers() {
+  const discountFactor = CONSTANTS.DISCOUNT_FACTOR;
+  const discountDelta = 1 - discountFactor;
+  const result = {};
+  for (const [months, multiplier] of Object.entries(CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT)) {
+    result[months] = Number((multiplier - discountDelta).toFixed(4));
+  }
+  return result;
+}
+
+function getChequeMultipliersDiscounted() {
+  return buildChequeMultipliersDiscounted(
+    CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT,
+    CONSTANTS.DISCOUNT_FACTOR
+  );
+}
+
+
+console.log('DEFAULT CHEQUE_MULTIPLIERS:');
+Object.entries(CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT).forEach(([key, value]) => {
+  console.log(`  Key: ${key}, INVOICE: ${value.INVOICE}, PREPAY: ${value.PREPAY}`);
+});
+
+console.log('DISCOUNTED CHEQUE_MULTIPLIERS:');
+const discountedMultipliers = getChequeMultipliersDiscounted();
+Object.entries(discountedMultipliers).forEach(([key, value]) => {
+  console.log(`  Key: ${key}, INVOICE: ${value.INVOICE}, PREPAY: ${value.PREPAY}`);
+});
+
+console.log('ضرایب رفاهی حالت عادی:');
+Object.entries(CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT).forEach(([key, value]) => {
+  console.log(`  ${key} ماهه: ${value}`);
+});
+
+console.log('ضرایب رفاهی حالت تخفیف‌دار:');
+Object.entries(getWelfareMultipliers()).forEach(([key, value]) => {
+  console.log(`  ${key} ماهه: ${value}`);
+});
+
+
 function getChequeMultipliers() {
   return discountEnabled
-    ? CONSTANTS.CHEQUE_MULTIPLIERS_DISCOUNTED
+    ? getChequeMultipliersDiscounted()
     : CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT;
 }
+
 const CHEQUE_MULTIPLIERS = new Proxy({}, {
   get(target, prop) {
     const active = getChequeMultipliers();
@@ -74,19 +147,32 @@ const CHEQUE_MULTIPLIERS = new Proxy({}, {
   }
 });
 
-// پراکسی برای ضرایب رفاهی
+
 const WELFARE_MULTIPLIERS = new Proxy({}, {
   get(target, prop) {
-    const active = discountEnabled 
-      ? CONSTANTS.WELFARE_MULTIPLIERS_DISCOUNTED 
-      : CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT;
-    return active[prop];
+    const multipliers = getWelfareMultipliers();
+    return multipliers[prop];
   }
 });
 
-// Helper function
 function getBasePriceFactor() {
-  return discountEnabled ? CONSTANTS.BASE_PRICE_FACTOR_DISCOUNTED : CONSTANTS.BASE_PRICE_FACTOR;
+  return discountEnabled 
+    ? CONSTANTS.BASE_PRICE_FACTOR_DISCOUNTED  // حالا getter است
+    : CONSTANTS.BASE_PRICE_FACTOR;
+}
+
+function setDiscountPercent(percent) {
+  CONSTANTS.DISCOUNT_PERCENT = percent;
+  discountEnabled = percent > 0;
+  
+  console.log(`🔄 تخفیف به ${percent}% تغییر کرد`);
+  console.log(`   DISCOUNT_FACTOR: ${CONSTANTS.DISCOUNT_FACTOR}`);
+  console.log(`   BASE_PRICE_FACTOR_DISCOUNTED: ${CONSTANTS.BASE_PRICE_FACTOR_DISCOUNTED}`);
+  
+  // رندر مجدد
+  if (typeof renderProducts === 'function' && lastProducts) {
+    renderProducts(lastProducts);
+  }
 }
 
 const grid = document.getElementById('grid');
@@ -95,14 +181,14 @@ const modal = document.getElementById('modal');
 const modalContent = document.getElementById('modalContent');
 const closeModal = document.getElementById('closeModal');
 
-// سوئیچ تخفیف
+
 (function insertDiscountControl(){
   const html = `
     <div id="discountControl" class="mb-4 mt-4 px-2 text-sm">
       <label class="inline-flex items-center cursor-pointer">
         <input id="enableDiscount" type="checkbox" class="sr-only" />
         <span id="enableDiscountSwitch" class="w-11 h-6 bg-gray-200 rounded-full relative ml-2 transition-colors" style="display:inline-block;vertical-align:middle"></span>
-        فعالسازی تخفیف (3%)
+        فعالسازی تخفیف (${CONSTANTS.DISCOUNT_PERCENT}%)
       </label>
     </div>`;
   try{
@@ -132,6 +218,8 @@ const closeModal = document.getElementById('closeModal');
       });
     }
   }catch(e){}
+  
+
 })();
 
 function showModal(html){
@@ -209,8 +297,45 @@ function getInstallmentDetails(price){
   return { months, factor, raw, rounded };
 }
 
-// تابع ساخت HTML مودال — اصلاح شده برای نمایش کد + قیمت خام
-function buildModalHtml(title, price, showPrice = true, forceTabs = false, code = null, rawPrice = null, originalPrice = null, isBike = false){
+function getCreditRules(basePrice) {
+  const rounded = Math.ceil(basePrice / CONSTANTS.CREDIT_ROUNDING) * CONSTANTS.CREDIT_ROUNDING;
+
+  if (basePrice <= CONSTANTS.THRESHOLD_A) {
+    // حالت ۱: زیر ۵ میلیارد
+    return {
+      showTab24: true,
+      showTab30: true,
+      showTab36: true,
+      credit24: rounded,
+      credit30: CONSTANTS.FIXED_CREDIT_30M_MID,
+      credit36: CONSTANTS.FIXED_CREDIT_36M_MID
+    };
+  } 
+  else if (basePrice <= CONSTANTS.THRESHOLD_B) {
+    // حالت ۲: ۵ تا ۷٫۶ میلیارد
+    return {
+      showTab24: false,
+      showTab30: true,
+      showTab36: true,
+      credit24: 0,                    // مهم نیست چون مخفی میشه
+      credit30: rounded,
+      credit36: CONSTANTS.FIXED_CREDIT_36M_MID
+    };
+  } 
+  else {
+    // حالت ۳: بالای ۷٫۶ میلیارد
+    return {
+      showTab24: false,
+      showTab30: false,
+      showTab36: true,
+      credit24: 0,
+      credit30: 0,
+      credit36: rounded
+    };
+  }
+}
+
+function buildModalHtml(title, price, showPrice = true, forceTabs = false, code = null, rawPrice = null, originalPrice = null, isBike = false, includeExtraTabs = true){
   const details = getInstallmentDetails(price);
   const months = details.months;
   const installmentRounded = details.rounded;
@@ -219,7 +344,7 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   const creditPrice = Math.ceil(price / CONSTANTS.CREDIT_ROUNDING) * CONSTANTS.CREDIT_ROUNDING;
   const creditRow = `<div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">میزان اعتبار</div><div class="font-medium text-gray-800">${fmtNumber(creditPrice,0)} ریال</div></div>`;
 
-  const sideRaw = creditPrice * (CONSTANTS.SIDE_COST_FACTORS.BLOCK + CONSTANTS.SIDE_COST_FACTORS.CONTRACT);
+  const sideRaw = (creditPrice / 1000000000) * 75000000;
   const sideWithAdd = sideRaw + CONSTANTS.CONTRACT_ADDON;
   const sideRounded = roundUpToMillion(sideWithAdd);
   const sideRow = `<div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(sideRounded,0)} ریال</div></div>`;
@@ -246,20 +371,30 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   if(isBike){
     const show10Months = price >= CONSTANTS.BIKE_CASH_PRICE_THRESHOLD;
     const chequeContentHtml = `
-      <div id="tabChequeContent" class="mt-4">
-        <div class="mb-3">
-          <label class="text-sm text-gray-700 block mb-1">نحوه خرید</label>
-          <select id="chequeMode" class="w-full border px-2 py-1 rounded">
-            <option value="bike_8" selected>8 ماهه</option>
-            ${show10Months ? '<option value="bike_10">10 ماهه</option>' : ''}
-          </select>
-        </div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-medium text-gray-800">-</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">پیش پرداخت</div><div id="chequePrepay" class="font-medium text-gray-800">-</div></div>
-        <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
-        ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
-      </div>
-    `;
+  <div id="tabChequeContent" class="mt-4">
+    <div class="mb-3">
+      <label class="text-sm text-gray-700 block mb-1">نحوه خرید</label>
+      <select id="chequeMode" class="w-full border px-2 py-1 rounded">
+        <option value="bike_8" selected>8 ماهه</option>
+        ${show10Months ? '<option value="bike_10">10 ماهه</option>' : ''}
+      </select>
+    </div>
+    <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-medium text-gray-800">-</div></div>
+    
+    <!-- بخش جدید: اسلایدر تنظیم پیش‌پرداخت -->
+    <div class="py-3">
+  <div class="flex justify-between items-center mb-2">
+    <div class="text-sm text-gray-600">پیش پرداخت</div>
+    <div class="font-medium text-gray-800" id="chequePrepayAmount">-</div>
+  </div>
+  <input type="range" id="chequePrepaySlider" class="generator-input w-full" min="0" max="100" step="0.5" value="0">
+</div>
+    
+    <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
+    <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
+    ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
+  </div>
+`;
     return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeAndRawPrice}${chequeContentHtml}`;
   }
 
@@ -271,54 +406,111 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   ${cashPriceRow}
   ${originalPriceRow}`;
 
-  if(forceTabs && price <= CONSTANTS.PRICE_THRESHOLD){
-    const inst24 = price * CONSTANTS.INSTALLMENT_FACTORS.LOW;
-    const credit24 = Math.ceil(price / CONSTANTS.CREDIT_ROUNDING) * CONSTANTS.CREDIT_ROUNDING;
-    const side24 = roundUpToMillion((credit24 * (CONSTANTS.SIDE_COST_FACTORS.BLOCK + CONSTANTS.SIDE_COST_FACTORS.CONTRACT)) + CONSTANTS.CONTRACT_ADDON);
-    const inst36 = price * CONSTANTS.INSTALLMENT_FACTORS.HIGH;
-    const credit36 = CONSTANTS.FIXED_CREDIT_36M;
-    const side36 = roundUpToMillion((credit36 * (CONSTANTS.SIDE_COST_FACTORS.BLOCK + CONSTANTS.SIDE_COST_FACTORS.CONTRACT)) + CONSTANTS.CONTRACT_ADDON);
+  // ────────────────────────────────────────────────
+const rules = getCreditRules(price);   // ← مهم
 
-    const tabHtml = `
-      <div class="flex gap-2 mb-4">
-        <button id="tab24" class="px-3 py-2 bg-indigo-600 text-white rounded">24 ماه</button>
-        <button id="tab36" class="px-3 py-2 bg-white text-gray-700 rounded border">36 ماه</button>
-        <button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">چکی</button>
-        <button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button>
-      </div>
-      <div id="tab24Content">
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div class="font-medium text-gray-800">${fmtNumber(inst24,0)} ریال</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">میزان اعتبار</div><div class="font-medium text-gray-800">${fmtNumber(credit24,0)} ریال</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(side24,0)} ریال</div></div>
-        ${cashPriceRow}
-        ${discountEnabled ? originalPriceRow : ''}
-      </div>
-      <div id="tab36Content" class="hidden">
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div class="font-medium text-gray-800">${fmtNumber(inst36,0)} ریال</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">میزان اعتبار</div><div class="font-medium text-gray-800">${fmtNumber(credit36,0)} ریال</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(side36,0)} ریال</div></div>
-        ${cashPriceRow}
-        ${discountEnabled ? originalPriceRow : ''}
-      </div>
-      <div id="tabChequeContent" class="hidden mt-4">
-        <div class="mb-3">
-          <label class="text-sm text-gray-700 block mb-1">نحوه خرید</label>
-          <select id="chequeMode" class="w-full border px-2 py-1 rounded">
-            <option value="8" selected>8 ماهه</option>
-            <option value="12">12 ماهه</option>
-            <option value="16">16 ماهه</option>
-            <option value="20">20 ماهه</option>
-            <option value="24">24 ماهه</option>
-          </select>
-        </div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-semibold text-gray-800">-</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">پیش پرداخت</div><div id="chequePrepay" class="font-medium text-gray-800">-</div></div>
-        <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
-        <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
-        ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
-      </div>
-      <div id="tabWelfareContent" class="hidden mt-4">
-        <div class="mb-3">
+// اگر هیچ تبی نمایش داده نشود → فقط قیمت نقدی نشان بده
+if (!rules.showTab24 && !rules.showTab30 && !rules.showTab36) {
+  // فقط ردیف قیمت نقدی و قیمت بدون تخفیف (اگر هست)
+  return `
+    <div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>
+    ${codeAndRawPrice}
+    <div class="flex justify-between py-2">
+      <div class="text-sm text-gray-600">قیمت نقدی محصول</div>
+      <div class="font-semibold text-gray-800 text-lg">${fmtNumber(price,0)} ریال</div>
+    </div>
+    ${discountEnabled && originalPrice ? originalPriceRow : ''}
+  `;
+}
+
+// در غیر این صورت تب‌ها رو می‌سازیم
+let tabButtons = '';
+let tabContents = '';
+
+// تب ۲۴
+if (rules.showTab24) {
+  const side24 = roundUpToMillion(((rules.credit24 / 1000000000)* 75000000)) + CONSTANTS.CONTRACT_ADDON;
+  tabButtons += `<button id="tab24" class="px-3 py-2 bg-indigo-600 text-white rounded">24 ماه</button>`;
+  tabContents += `
+    <div id="tab24Content">
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div class="font-medium text-gray-800">${fmtNumber(price * CONSTANTS.INSTALLMENT_FACTORS.LOW,0)} ریال</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">میزان اعتبار</div><div class="font-medium text-gray-800">${fmtNumber(rules.credit24,0)} ریال</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(side24,0)} ریال</div></div>
+      ${cashPriceRow}
+      ${discountEnabled ? originalPriceRow : ''}
+    </div>
+  `;
+}
+
+// تب ۳۰
+if (rules.showTab30) {
+  const side30 = roundUpToMillion(((rules.credit30 / 1000000000)* 75000000)) + CONSTANTS.CONTRACT_ADDON;
+  tabButtons += `<button id="tab30" class="px-3 py-2 ${rules.showTab24 ? 'bg-white text-gray-700 border' : 'bg-indigo-600 text-white'} rounded">30 ماه</button>`;
+  tabContents += `
+    <div id="tab30Content" ${rules.showTab24 ? 'class="hidden"' : ''}>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div class="font-medium text-gray-800">${fmtNumber(price * CONSTANTS.INSTALLMENT_FACTORS.MID,0)} ریال</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">میزان اعتبار</div><div class="font-medium text-gray-800">${fmtNumber(rules.credit30,0)} ریال</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(side30,0)} ریال</div></div>
+      ${cashPriceRow}
+      ${discountEnabled ? originalPriceRow : ''}
+    </div>
+  `;
+}
+
+// تب ۳۶
+if (rules.showTab36) {
+  const side36 = roundUpToMillion(((rules.credit36 / 1000000000)* 75000000)) + CONSTANTS.CONTRACT_ADDON;
+  tabButtons += `<button id="tab36" class="px-3 py-2 ${!rules.showTab24 && !rules.showTab30 ? 'bg-indigo-600 text-white' : 'bg-white text-gray-700 border'} rounded">36 ماه</button>`;
+  tabContents += `
+    <div id="tab36Content" class="${rules.showTab24 || rules.showTab30 ? 'hidden' : ''}">
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div class="font-medium text-gray-800">${fmtNumber(price * CONSTANTS.INSTALLMENT_FACTORS.HIGH,0)} ریال</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">میزان اعتبار</div><div class="font-medium text-gray-800">${fmtNumber(rules.credit36,0)} ریال</div></div>
+      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">بلوکه + قرارداد</div><div class="font-medium text-gray-800">${fmtNumber(side36,0)} ریال</div></div>
+      ${cashPriceRow}
+      ${discountEnabled ? originalPriceRow : ''}
+    </div>
+  `;
+}
+
+// تب‌های چکی و رفاهی فقط وقتی includeExtraTabs=true نمایش داده شوند
+let extraButtons = '';
+let extraContents = '';
+
+if (includeExtraTabs) {
+  extraButtons = `
+    <button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">چکی</button>
+    <button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button>
+  `;
+  extraContents = `
+    <div id="tabChequeContent" class="hidden mt-4">
+	<div class="mb-3">
+    <label class="text-sm text-gray-700 block mb-1">نحوه خرید</label>
+    <select id="chequeMode" class="w-full border px-2 py-1 rounded">
+      <option value="8" selected>8 ماهه</option>
+      <option value="12">12 ماهه</option>
+      <option value="16">16 ماهه</option>
+      <option value="20">20 ماهه</option>
+      <option value="24">24 ماهه</option>
+    </select>
+  </div>
+  <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-semibold text-gray-800">-</div></div>
+  
+  <!-- بخش جدید: اسلایدر تنظیم پیش‌پرداخت -->
+  <div class="py-3">
+  <div class="flex justify-between items-center mb-2">
+    <div class="text-sm text-gray-600">پیش پرداخت</div>
+    <div class="font-medium text-gray-800" id="chequePrepayAmount">-</div>
+  </div>
+  <input type="range" id="chequePrepaySlider" class="generator-input w-full" min="0" max="100" step="0.5" value="0">
+</div>
+  
+  <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
+  <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
+  ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
+</div>
+	</div>
+    <div id="tabWelfareContent" class="hidden mt-4">
+	<div class="mb-3">
           <label class="text-sm text-gray-700 block mb-1">نحوه خرید رفاهی</label>
           <select id="welfareMode" class="w-full border px-2 py-1 rounded">
             <option value="24">24 ماهه</option>
@@ -330,9 +522,23 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
         <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="welfareGuarantee" class="font-medium text-gray-800">-</div></div>
         ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="welfareOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
       </div>
-    `;
-    return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeAndRawPrice}${tabHtml}`;
-  }
+  </div>
+	</div>
+  `;
+}
+
+
+
+const tabHtml = `
+  <div class="flex gap-2 mb-4 flex-wrap">
+    ${tabButtons}
+    ${extraButtons}
+  </div>
+  ${tabContents}
+  ${extraContents}
+`;
+
+return `<div class="text-2xl font-semibold mb-1 text-gray-900">${escapeHtml(title)}</div>${codeAndRawPrice}${tabHtml}`;
 
   let extraRows = '';
   if(price <= CONSTANTS.PRICE_THRESHOLD){
@@ -343,25 +549,34 @@ function buildModalHtml(title, price, showPrice = true, forceTabs = false, code 
   const chequeButtonHtml = rawPrice ? `<div class="flex gap-2 mb-4"><button id="tab36Single" class="px-3 py-2 bg-indigo-600 text-white rounded border">36 ماه</button><button id="tabCheque" class="px-3 py-2 bg-white text-gray-700 rounded border">چکی</button><button id="tabWelfare" class="px-3 py-2 bg-white text-gray-700 rounded border">رفاهی</button></div>` : '';
   const chequeContentHtml = rawPrice ? `
     <div id="tabChequeContent" class="hidden mt-4">
-      <div class="mb-3">
-        <label class="text-sm text-gray-700 block mb-1">نحوه خرید</label>
-        <select id="chequeMode" class="w-full border px-2 py-1 rounded">
-          <option value="8" selected>8 ماهه</option>
-          <option value="12">12 ماهه</option>
-          <option value="16">16 ماهه</option>
-          <option value="20">20 ماهه</option>
-          <option value="24">24 ماهه</option>
-        </select>
-      </div>
-      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-medium text-gray-800">-</div></div>
-      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">پیش پرداخت</div><div id="chequePrepay" class="font-medium text-gray-800">-</div></div>
-      <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
-      <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
-      ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
-    </div>
+  <div class="mb-3">
+    <label class="text-sm text-gray-700 block mb-1">نحوه خرید</label>
+    <select id="chequeMode" class="w-full border px-2 py-1 rounded">
+      <option value="8" selected>8 ماهه</option>
+      <option value="12">12 ماهه</option>
+      <option value="16">16 ماهه</option>
+      <option value="20">20 ماهه</option>
+      <option value="24">24 ماهه</option>
+    </select>
+  </div>
+  <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ فاکتور</div><div id="chequeInvoice" class="font-semibold text-gray-800">-</div></div>
+  
+  <!-- بخش جدید: اسلایدر تنظیم پیش‌پرداخت -->
+  <div class="py-3">
+  <div class="flex justify-between items-center mb-2">
+    <div class="text-sm text-gray-600">پیش پرداخت</div>
+    <div class="font-medium text-gray-800" id="chequePrepayAmount">-</div>
+  </div>
+  <input type="range" id="chequePrepaySlider" class="generator-input w-full" min="0" max="100" step="0.5" value="0">
+</div>
+  
+  <div class="flex justify-between border-b py-2"><div class="text-sm text-gray-600">مبلغ هر قسط</div><div id="chequeInstallment" class="font-medium text-gray-800">-</div></div>
+  <div class="flex justify-between py-2"><div class="text-sm text-gray-600">مبلغ چک ضمانت</div><div id="chequeGuarantee" class="font-medium text-gray-800">-</div></div>
+  ${discountEnabled ? `<div class="flex justify-between py-2 border-t"><div class="text-sm text-gray-600">قیمت بدون تخفیف</div><div id="chequeOriginalPrice" class="font-medium text-gray-800">-</div></div>` : ''}
+</div>
   ` : '';
 
-  const welfareContentHtml = rawPrice ? `
+ const welfareContentHtml = rawPrice ? `
     <div id="tabWelfareContent" class="hidden mt-4">
       <div class="mb-3">
         <label class="text-sm text-gray-700 block mb-1">نحوه خرید رفاهی</label>
@@ -434,227 +649,282 @@ function renderProducts(products){
       const rawPriceVal = numericPrice;
       const isBike = (p.Bike || p.bike || p['Bike'] || p['bike'] || '').toString().trim() === '1';
       const useTabs = !isBike && basePrice <= CONSTANTS.PRICE_THRESHOLD;
-      showModal(buildModalHtml(name, basePrice, true, useTabs, codeVal, rawPriceVal, originalBasePrice, isBike));
+      showModal(buildModalHtml(name, basePrice, true, useTabs, codeVal, rawPriceVal, originalBasePrice, isBike, true));
 
-      setTimeout(()=>{
-        const chequeMode = document.getElementById('chequeMode');
-        const invoiceEl = document.getElementById('chequeInvoice');
-        const prepayEl = document.getElementById('chequePrepay');
-        const instEl = document.getElementById('chequeInstallment');
-        const guaranteeEl = document.getElementById('chequeGuarantee');
-        const chequeOriginalEl = document.getElementById('chequeOriginalPrice');
+setTimeout(()=>{
+  // دریافت المان‌های مورد نیاز
+  const chequeMode = document.getElementById('chequeMode');
+  const invoiceEl = document.getElementById('chequeInvoice');
+  const instEl = document.getElementById('chequeInstallment');
+  const guaranteeEl = document.getElementById('chequeGuarantee');
+  const chequeOriginalEl = document.getElementById('chequeOriginalPrice');
+  const welfareMode = document.getElementById('welfareMode');
+  
+  // ذخیره rawPriceVal برای استفاده در توابع داخلی
+  const productRawPrice = rawPriceVal;
 
-        if(chequeMode && invoiceEl && prepayEl && instEl){
-          function computeCheque(){
-            const mode = chequeMode.value;
-            const invoiceMultiplier = CHEQUE_MULTIPLIERS[mode]?.INVOICE || getBasePriceFactor();
-            const prepayMultiplier = CHEQUE_MULTIPLIERS[mode]?.PREPAY || CHEQUE_MULTIPLIERS.PREPAY;
-            const srcRaw = rawPriceVal;
-            const invoice = srcRaw * invoiceMultiplier;
-            const prepayBase = invoice * prepayMultiplier;
-            const months = parseInt(mode.replace('bike_', ''),10);
-            let installmentRaw = (invoice - prepayBase) / months;
+  // ========== تعریف توابع محاسباتی ==========
+  
+  // تابع محاسبات چکی
+// تابع محاسبات چکی
+const computeChequeFn = function() {
+  // دریافت مجدد المان‌ها (مهم برای bike)
+  const chequeMode = document.getElementById('chequeMode');
+  const invoiceEl = document.getElementById('chequeInvoice');
+  const instEl = document.getElementById('chequeInstallment');
+  const guaranteeEl = document.getElementById('chequeGuarantee');
+  const chequeOriginalEl = document.getElementById('chequeOriginalPrice');
+  
+  // بررسی وجود المان‌های مورد نیاز
+  if (!chequeMode || !invoiceEl || !instEl) {
+    console.log('المان‌های چکی پیدا نشد');
+    return;
+  }
+  
+  const mode = chequeMode.value;
+  
+  // بررسی وجود ضریب برای این mode
+  let invoiceMultiplier;
+  let prepayMultiplier;
+  
+  // برای bike، modeها با 'bike_' شروع می‌شوند
+  if (mode.startsWith('bike_')) {
+    invoiceMultiplier = CHEQUE_MULTIPLIERS[mode]?.INVOICE || getBasePriceFactor();
+    prepayMultiplier = CHEQUE_MULTIPLIERS[mode]?.PREPAY || 0.2144;
+  } else {
+    invoiceMultiplier = CHEQUE_MULTIPLIERS[mode]?.INVOICE || getBasePriceFactor();
+    prepayMultiplier = CHEQUE_MULTIPLIERS[mode]?.PREPAY || CHEQUE_MULTIPLIERS.PREPAY;
+  }
+  
+  const srcRaw = productRawPrice;
+  const invoice = srcRaw * invoiceMultiplier;
+  
+  // محاسبه حداقل پیش‌پرداخت براساس ضریب
+  const minPrepay = invoice * prepayMultiplier;
+  
+  // دریافت المان‌های اسلایدر
+  const prepaySlider = document.getElementById('chequePrepaySlider');
+  const prepayAmount = document.getElementById('chequePrepayAmount');
+  
+  // برای bike، اگر اسلایدر وجود نداشت، از روش ساده استفاده کن
+  if (!prepaySlider || !prepayAmount) {
+    // روش ساده برای bike
+    const prepayBase = invoice * prepayMultiplier;
+    const months = parseInt(mode.replace('bike_', ''), 10);
+    let installmentRaw = (invoice - prepayBase) / months;
+    
+    function roundSpecial(n){
+      const abs = Math.abs(Math.floor(n));
+      const s = abs.toString();
+      const len = s.length;
+      if(len === 7){
+        const prefix = s.slice(0,2);
+        const rounded = parseInt(prefix + '0'.repeat(5), 10);
+        return Math.sign(n) * rounded;
+      }
+      if(len === 8){
+        const prefix = s.slice(0,2);
+        const rounded = parseInt(prefix + '0'.repeat(6), 10);
+        return Math.sign(n) * rounded;
+      }
+      if(len === 9){
+        const prefix = s.slice(0,3);
+        const rounded = parseInt(prefix + '0'.repeat(6), 10);
+        return Math.sign(n) * rounded;
+      }
+      if(len === 10){
+        const prefix = s.slice(0,3);
+        const rounded = parseInt(prefix + '0'.repeat(7), 10);
+        return Math.sign(n) * rounded;
+      }
+      return Math.round(n);
+    }
+    
+    const installmentRounded = roundSpecial(installmentRaw);
+    const totalRounded = installmentRounded * months;
+    const diff = invoice - (prepayBase + totalRounded);
+    const prepayAdjusted = prepayBase + diff;
+    
+    let guaranteeRaw = installmentRounded * months;
+    guaranteeRaw = guaranteeRaw + (guaranteeRaw * CONSTANTS.GUARANTEE_FACTOR);
+    const guaranteeRounded = Math.ceil(guaranteeRaw);
+    
+    invoiceEl.textContent = fmtNumber(invoice, 0) + ' ریال';
+    instEl.textContent = fmtNumber(installmentRounded, 0) + ' ریال';
+    
+    // برای bike، المان prepayAmount ممکن است وجود نداشته باشد
+    const prepayAmountElem = document.getElementById('chequePrepayAmount');
+    if (prepayAmountElem) {
+      prepayAmountElem.textContent = fmtNumber(prepayAdjusted, 0) + ' ریال';
+    }
+    
+    if (guaranteeEl) {
+      guaranteeEl.textContent = fmtNumber(guaranteeRounded, 0) + ' ریال';
+    }
+    
+    if (chequeOriginalEl) {
+      const originalRaw = (productRawPrice || 0) * (CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT[mode]?.INVOICE || CONSTANTS.BASE_PRICE_FACTOR);
+      chequeOriginalEl.textContent = fmtNumber(originalRaw, 0) + ' ریال';
+    }
+    return;
+  }
+  
+  // ادامه کد برای زمانی که اسلایدر وجود دارد (محصولات عادی)
+  const months = parseInt(mode.replace('bike_', ''), 10);
+  
+  // تابع تبدیل درصد به مبلغ
+  function percentToAmount(percent) {
+    return minPrepay + (percent / 100) * (invoice - minPrepay);
+  }
+  
+  // تابع تبدیل مبلغ به درصد
+  function amountToPercent(amount) {
+    amount = Math.max(minPrepay, Math.min(invoice, amount));
+    return ((amount - minPrepay) / (invoice - minPrepay)) * 100;
+  }
+  
+  // تنظیم محدوده اسلایدر (بر اساس درصد)
+  prepaySlider.min = 0;
+  prepaySlider.max = 100;
+  prepaySlider.value = 0;
+  prepayAmount.textContent = fmtNumber(minPrepay, 0) + ' ریال';
+  
+  // تابع به‌روزرسانی مقادیر براساس پیش‌پرداخت
+  function updateFromPrepay(prepayValue) {
+    prepayValue = Math.max(minPrepay, Math.min(invoice, prepayValue));
+    let installmentRaw = (invoice - prepayValue) / months;
+    
+    function roundSpecial(n){
+      const abs = Math.abs(Math.floor(n));
+      const s = abs.toString();
+      const len = s.length;
+      if(len === 7){
+        const prefix = s.slice(0,2);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(5), 10);
+      }
+      if(len === 8){
+        const prefix = s.slice(0,2);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
+      }
+      if(len === 9){
+        const prefix = s.slice(0,3);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
+      }
+      if(len === 10){
+        const prefix = s.slice(0,3);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(7), 10);
+      }
+      return Math.round(n);
+    }
+    
+    const installmentRounded = roundSpecial(installmentRaw);
+    const totalRounded = installmentRounded * months;
+    const adjustedPrepay = invoice - totalRounded;
+    
+    let guaranteeRaw = installmentRounded * months;
+    guaranteeRaw = guaranteeRaw + (guaranteeRaw * CONSTANTS.GUARANTEE_FACTOR);
+    const guaranteeRounded = Math.ceil(guaranteeRaw);
+    
+    invoiceEl.textContent = fmtNumber(invoice, 0) + ' ریال';
+    prepayAmount.textContent = fmtNumber(adjustedPrepay, 0) + ' ریال';
+    prepaySlider.value = amountToPercent(adjustedPrepay);
+    instEl.textContent = fmtNumber(installmentRounded, 0) + ' ریال';
+    
+    if (guaranteeEl) {
+      guaranteeEl.textContent = fmtNumber(guaranteeRounded, 0) + ' ریال';
+    }
+    
+    if (chequeOriginalEl) {
+      const originalRaw = (productRawPrice || 0) * (CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT[mode.replace('bike_', '')]?.INVOICE || CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT[mode]?.INVOICE || CONSTANTS.BASE_PRICE_FACTOR);
+      chequeOriginalEl.textContent = fmtNumber(originalRaw, 0) + ' ریال';
+    }
+  }
+  
+  // حذف رویدادهای قبلی
+  const newPrepaySlider = prepaySlider.cloneNode(false);
+  prepaySlider.parentNode.replaceChild(newPrepaySlider, prepaySlider);
+  
+  newPrepaySlider.addEventListener('input', function() {
+    const percent = parseFloat(this.value);
+    const amount = percentToAmount(percent);
+    updateFromPrepay(amount);
+  });
+  
+  updateFromPrepay(minPrepay);
+};
 
-            function roundSpecial(n){
-              const abs = Math.abs(Math.floor(n));
-              const s = abs.toString();
-              const len = s.length;
-              if(len === 7){
-                const prefix = s.slice(0,2);
-                const rounded = parseInt(prefix + '0'.repeat(5), 10);
-                return Math.sign(n) * rounded;
-              }
-              if(len === 8){
-                const prefix = s.slice(0,2);
-                const rounded = parseInt(prefix + '0'.repeat(6), 10);
-                return Math.sign(n) * rounded;
-              }
-              if(len === 9){
-                const prefix = s.slice(0,3);
-                const rounded = parseInt(prefix + '0'.repeat(6), 10);
-                return Math.sign(n) * rounded;
-              }
-              if(len === 10){
-                const prefix = s.slice(0,3);
-                const rounded = parseInt(prefix + '0'.repeat(7), 10);
-                return Math.sign(n) * rounded;
-              }
-              return Math.round(n);
-            }
+setTimeout(computeChequeFn, 100);
 
-            const installmentRounded = roundSpecial(installmentRaw);
-            const totalRounded = installmentRounded * months;
-            const diff = invoice - (prepayBase + totalRounded);
-            const prepayAdjusted = prepayBase + diff;
+  // تابع محاسبات رفاهی
+  const computeWelfareFn = function() {
+    if (!welfareMode) return;
+    
+    const mode = welfareMode.value;
+    if(!mode) return;
 
-            let guaranteeRaw = installmentRounded * months;
-            guaranteeRaw = guaranteeRaw + (guaranteeRaw * CONSTANTS.GUARANTEE_FACTOR);
-            const guaranteeRounded = Math.ceil(guaranteeRaw);
+    const invoiceMultiplier = WELFARE_MULTIPLIERS[mode];
+    const srcRaw = productRawPrice;
+    const invoice = srcRaw * invoiceMultiplier;
+    const months = parseInt(mode, 10);
+    let installmentRaw = invoice / months;
 
-            invoiceEl.textContent = fmtNumber(invoice,0) + ' ریال';
-            prepayEl.textContent = fmtNumber(prepayAdjusted,0) + ' ریال';
-            instEl.textContent = fmtNumber(installmentRounded,0) + ' ریال';
-            if(guaranteeEl){
-              guaranteeEl.textContent = fmtNumber(guaranteeRounded,0) + ' ریال';
-            }
-            if(chequeOriginalEl){
-              const originalRaw = (rawPriceVal || 0) * (CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT[mode.replace('bike_', '')]?.INVOICE || CONSTANTS.CHEQUE_MULTIPLIERS_DEFAULT[mode]?.INVOICE || CONSTANTS.BASE_PRICE_FACTOR);
-              chequeOriginalEl.textContent = fmtNumber(originalRaw,0) + ' ریال';
-            }
-          }
+    function roundSpecial(n){
+      const abs = Math.abs(Math.floor(n));
+      const s = abs.toString();
+      const len = s.length;
+      if(len === 7){
+        const prefix = s.slice(0,2);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(5), 10);
+      }
+      if(len === 8){
+        const prefix = s.slice(0,2);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
+      }
+      if(len === 9){
+        const prefix = s.slice(0,3);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
+      }
+      if(len === 10){
+        const prefix = s.slice(0,3);
+        return Math.sign(n) * parseInt(prefix + '0'.repeat(7), 10);
+      }
+      return Math.round(n);
+    }
 
-          chequeMode.addEventListener('change', computeCheque);
-          computeCheque();
-        }
+    const installmentRounded = roundSpecial(installmentRaw);
+    const guaranteeRaw = invoice * 1.25;
+    const guaranteeRounded = roundSpecial(guaranteeRaw);
 
-        
-          function computeWelfare(){
-          const mode = document.getElementById('welfareMode')?.value;
-          if(!mode) return;
+    const welfareInvoice = document.getElementById('welfareInvoice');
+    const welfareInstallment = document.getElementById('welfareInstallment');
+    const welfareGuarantee = document.getElementById('welfareGuarantee');
+    const welfareOriginal = document.getElementById('welfareOriginalPrice');
 
-          const invoiceMultiplier = WELFARE_MULTIPLIERS[mode];
-          const srcRaw = rawPriceVal;
-          const invoice = srcRaw * invoiceMultiplier;
-          const months = parseInt(mode, 10);
-          let installmentRaw = invoice / months;
+    if(welfareInvoice) welfareInvoice.textContent = fmtNumber(invoice, 0) + ' ریال';
+    if(welfareInstallment) welfareInstallment.textContent = fmtNumber(installmentRounded, 0) + ' ریال';
+    if(welfareGuarantee) welfareGuarantee.textContent = fmtNumber(guaranteeRounded, 0) + ' ریال';
+    if(welfareOriginal && discountEnabled){
+      const origMult = CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT[mode];
+      const origInvoice = srcRaw * origMult;
+      welfareOriginal.textContent = fmtNumber(origInvoice, 0) + ' ریال';
+    }
+  };
 
-          // تابع گرد کردن (همانند تب چکی)
-          function roundSpecial(n){
-            const abs = Math.abs(Math.floor(n));
-            const s = abs.toString();
-            const len = s.length;
-            if(len === 7){
-              const prefix = s.slice(0,2);
-              return Math.sign(n) * parseInt(prefix + '0'.repeat(5), 10);
-            }
-            if(len === 8){
-              const prefix = s.slice(0,2);
-              return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
-            }
-            if(len === 9){
-              const prefix = s.slice(0,3);
-              return Math.sign(n) * parseInt(prefix + '0'.repeat(6), 10);
-            }
-            if(len === 10){
-              const prefix = s.slice(0,3);
-              return Math.sign(n) * parseInt(prefix + '0'.repeat(7), 10);
-            }
-            return Math.round(n);
-          }
+  // اضافه کردن رویداد به chequeMode
+  if (chequeMode) {
+    chequeMode.addEventListener('change', computeChequeFn);
+  }
 
-          const installmentRounded = roundSpecial(installmentRaw);
+  // اضافه کردن رویداد به welfareMode
+  if (welfareMode) {
+    welfareMode.addEventListener('change', computeWelfareFn);
+  }
 
-          // تغییر مهم: چک ضمانت = فاکتور × 1.25 → گرد با roundSpecial
-          const guaranteeRaw = invoice * 1.25;
-          const guaranteeRounded = roundSpecial(guaranteeRaw); // اینجا تغییر کرد
+  // اجرای setupTabs
+  setupTabs(computeChequeFn, computeWelfareFn, rawPriceVal);
+  
+}, 60);
 
-          const welfareInvoice = document.getElementById('welfareInvoice');
-          const welfareInstallment = document.getElementById('welfareInstallment');
-          const welfareGuarantee = document.getElementById('welfareGuarantee');
-          const welfareOriginal = document.getElementById('welfareOriginalPrice');
-
-          if(welfareInvoice) welfareInvoice.textContent = fmtNumber(invoice, 0) + ' ریال';
-          if(welfareInstallment) welfareInstallment.textContent = fmtNumber(installmentRounded, 0) + ' ریال';
-          if(welfareGuarantee) welfareGuarantee.textContent = fmtNumber(guaranteeRounded, 0) + ' ریال';
-          if(welfareOriginal && discountEnabled){
-            const origMult = CONSTANTS.WELFARE_MULTIPLIERS_DEFAULT[mode];
-            const origInvoice = srcRaw * origMult;
-            welfareOriginal.textContent = fmtNumber(origInvoice, 0) + ' ریال';
-          }
-        }
-
-        const welfareMode = document.getElementById('welfareMode');
-        const tabWelfare = document.getElementById('tabWelfare');
-        const tabWelfareContent = document.getElementById('tabWelfareContent');
-
-        if(welfareMode && tabWelfare){
-          welfareMode.addEventListener('change', computeWelfare);
-
-          tabWelfare.addEventListener('click', ()=>{
-            const tabs = ['tab36Single', 'tabCheque', 'tab24', 'tab36'];
-            tabs.forEach(id => {
-              const el = document.getElementById(id);
-              if(el){
-                el.classList.remove('bg-indigo-600','text-white');
-                el.classList.add('bg-white','text-gray-700','border');
-              }
-            });
-            tabWelfare.classList.add('bg-indigo-600','text-white');
-            tabWelfare.classList.remove('bg-white','text-gray-700','border');
-
-            ['mainRowsContent', 'tabChequeContent', 'tab24Content', 'tab36Content'].forEach(id => {
-              const el = document.getElementById(id);
-              if(el) el.classList.add('hidden');
-            });
-            if(tabWelfareContent) tabWelfareContent.classList.remove('hidden');
-
-            computeWelfare();
-          });
-
-          setTimeout(computeWelfare, 10);
-        }
-
-        if(!isBike){
-          const tab24 = document.getElementById('tab24');
-          const tab36 = document.getElementById('tab36');
-          const t24c = document.getElementById('tab24Content');
-          const t36c = document.getElementById('tab36Content');
-          const tabCheque = document.getElementById('tabCheque');
-          const tab36Single = document.getElementById('tab36Single');
-          const mainRowsContent = document.getElementById('mainRowsContent');
-
-          if(tab24 && tab36 && t24c && t36c){
-            tab24.addEventListener('click', ()=>{
-              tabCheque.classList.add('border');
-              tab24.classList.add('bg-indigo-600','text-white'); tab24.classList.remove('bg-white','text-gray-700','border');
-              tab36.classList.remove('bg-indigo-600','text-white'); tab36.classList.add('bg-white','text-gray-700','border');
-              tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white');
-              t24c.classList.remove('hidden'); t36c.classList.add('hidden');
-              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
-              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
-            });
-            tab36.addEventListener('click', ()=>{
-              tabCheque.classList.add('border');
-              tab36.classList.add('bg-indigo-600','text-white'); tab36.classList.remove('bg-white','text-gray-700','border');
-              tab24.classList.remove('bg-indigo-600','text-white'); tab24.classList.add('bg-white','text-gray-700','border');
-              tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white');
-              t36c.classList.remove('hidden'); t24c.classList.add('hidden');
-              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
-              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
-            });
-            if(tabCheque){
-              tabCheque.addEventListener('click', ()=>{
-                tabCheque.classList.add('bg-indigo-600','text-white'); tabCheque.classList.remove('bg-white','text-gray-700','border');
-                tab24.classList.remove('bg-indigo-600','text-white'); tab24.classList.add('bg-white','text-gray-700','border');
-                tab36.classList.remove('bg-indigo-600','text-white'); tab36.classList.add('bg-white','text-gray-700','border');
-                t24c.classList.add('hidden'); t36c.classList.add('hidden');
-                const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.remove('hidden');
-                const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
-              });
-            }
-          }
-          if(tab36Single){
-            tab36Single.addEventListener('click', ()=>{
-              if(mainRowsContent) mainRowsContent.classList.remove('hidden');
-              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.add('hidden');
-              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
-              tab36Single.classList.add('bg-indigo-600','text-white'); tab36Single.classList.remove('bg-white','text-gray-700','border');
-              tabCheque && tabCheque.classList.remove('bg-indigo-600','text-white'); tabCheque && tabCheque.classList.add('bg-white','text-gray-700','border');
-              tabWelfare && tabWelfare.classList.remove('bg-indigo-600','text-white'); tabWelfare && tabWelfare.classList.add('bg-white','text-gray-700','border');
-            });
-          }
-          if(tabCheque){
-            tabCheque.addEventListener('click', ()=>{
-              const tCheque = document.getElementById('tabChequeContent'); if(tCheque) tCheque.classList.remove('hidden');
-              if(mainRowsContent) mainRowsContent.classList.add('hidden');
-              const tWelfare = document.getElementById('tabWelfareContent'); if(tWelfare) tWelfare.classList.add('hidden');
-              tabCheque.classList.add('bg-indigo-600','text-white'); tabCheque.classList.remove('bg-white','text-gray-700','border');
-              tab36Single && tab36Single.classList.remove('bg-indigo-600','text-white'); tab36Single && tab36Single.classList.add('bg-white','text-gray-700','border');
-              tabWelfare && tabWelfare.classList.remove('bg-indigo-600','text-white'); tabWelfare && tabWelfare.classList.add('bg-white','text-gray-700','border');
-            });
-          }
-        }
-      }, 60);
     });
     grid.appendChild(card);
   });
@@ -710,16 +980,82 @@ if(customBtn){
       try{ el.setSelectionRange(newPos, newPos); }catch(e){}
     }
 
-    function renderCustom(){
-      const rawInput = (inp.value||'').toString();
-      const cleaned = rawInput.replace(/[,\s]/g,'').replace(/[^0-9.\-]/g,'');
-      if(!cleaned){
-        out.innerHTML = '<div class="text-center text-gray-500 py-6"></div>';
+    function renderCustom() {
+    const rawInput = (inp.value || '').toString().trim();
+    const cleaned = rawInput.replace(/[,\s]/g, '').replace(/[^0-9.\-]/g, '');
+    
+    if (!cleaned) {
+        out.innerHTML = '<div class="text-center text-gray-500 py-6">مبلغی وارد نشده است</div>';
         return;
-      }
-      const num = parseFloat(cleaned) || 0;
-      out.innerHTML = buildModalHtml('', num, false);
     }
+
+    const num = parseFloat(cleaned) || 0;
+    if (num <= 0) {
+        out.innerHTML = '<div class="text-center text-red-600 py-6">لطفاً مبلغ معتبر وارد کنید</div>';
+        return;
+    }
+
+    // رندر html تب‌دار
+    out.innerHTML = buildModalHtml('', num, false, true, null, null, null, false, false);
+
+    // صبر کوتاه تا DOM آماده شود + attach listener مستقل
+    setTimeout(() => {
+        // پیدا کردن container دکمه‌ها (کلاس‌هایی که در buildModalHtml استفاده کردی)
+        const tabContainer = document.querySelector('#customPriceResult .flex.gap-2.mb-4.flex-wrap');
+        if (!tabContainer) {
+            console.warn("Container تب‌ها در customPriceResult پیدا نشد");
+            return;
+        }
+
+        // برای جلوگیری از چندبار attach → clone و جایگزین
+        const newContainer = tabContainer.cloneNode(true);
+        tabContainer.parentNode.replaceChild(newContainer, tabContainer);
+
+        // همه محتواها را ابتدا مخفی کن
+        const contents = ['tab24Content', 'tab30Content', 'tab36Content'];
+        contents.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.classList.add('hidden');
+        });
+
+        // listener کلیک
+        newContainer.addEventListener('click', function(e) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+
+            const btnId = btn.id;
+            let contentId = null;
+
+            if (btnId === 'tab24') contentId = 'tab24Content';
+            else if (btnId === 'tab30') contentId = 'tab30Content';
+            else if (btnId === 'tab36') contentId = 'tab36Content';
+
+            if (!contentId) return;
+
+            // تغییر استایل دکمه‌ها
+            newContainer.querySelectorAll('button').forEach(b => {
+                b.classList.remove('bg-indigo-600', 'text-white');
+                b.classList.add('bg-white', 'text-gray-700', 'border');
+            });
+            btn.classList.remove('bg-white', 'text-gray-700', 'border');
+            btn.classList.add('bg-indigo-600', 'text-white');
+
+            // سوئیچ محتوا
+            contents.forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.classList.add('hidden');
+            });
+
+            const target = document.getElementById(contentId);
+            if (target) target.classList.remove('hidden');
+        });
+
+        // فعال‌سازی تب اول به صورت خودکار (اولین دکمه‌ای که وجود دارد)
+        const firstBtn = newContainer.querySelector('button');
+        if (firstBtn) firstBtn.click();
+
+    }, 150);   // 150ms معمولاً کافی است
+}
 
     inp.addEventListener('input', (e)=>{
       formatInputWithCaret(inp);
@@ -818,3 +1154,87 @@ document.addEventListener('keydown', (event) => {
         }
     }
 });
+
+
+// ========== مدیریت ساده تب‌ها ==========
+function setupTabs(computeChequeFn = null, computeWelfareFn = null) {
+
+  // پیدا کردن هر دکمه تب موجود
+  const possibleButtons = [
+    document.getElementById('tab24'),
+    document.getElementById('tab36'),
+    document.getElementById('tab36Single'),
+    document.getElementById('tabCheque'),
+    document.getElementById('tabWelfare')
+  ].filter(Boolean);
+
+  if (!possibleButtons.length) return;
+
+  // گرفتن container واقعی از والد اولین دکمه موجود
+  const tabContainer = possibleButtons[0].parentElement;
+  if (!tabContainer) return;
+
+  function hideAllContents() {
+    const ids = [
+      'tab24Content',
+	  'tab30Content',
+      'tab36Content',
+      'tabChequeContent',
+      'tabWelfareContent',
+      'mainRowsContent'
+    ];
+
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    });
+  }
+
+  function deactivateAllButtons() {
+    const buttons = tabContainer.querySelectorAll('button');
+    buttons.forEach(btn => {
+      btn.classList.remove('bg-indigo-600', 'text-white');
+      btn.classList.add('bg-white', 'text-gray-700', 'border');
+    });
+  }
+
+  tabContainer.addEventListener('click', function (e) {
+    const btn = e.target.closest('button');
+    if (!btn) return;
+
+    const btnId = btn.id;
+    let contentId = null;
+
+    if (btnId === 'tab24') contentId = 'tab24Content';
+    else if (btnId === 'tab36') contentId = 'tab36Content';
+    else if (btnId === 'tabCheque') contentId = 'tabChequeContent';
+    else if (btnId === 'tabWelfare') contentId = 'tabWelfareContent';
+    else if (btnId === 'tab36Single') contentId = 'mainRowsContent';
+	else if (btnId === 'tab30') contentId = 'tab30Content';
+	else if (btnId === 'tabCheque' && computeChequeFn) {setTimeout(computeChequeFn, 10);}
+
+    const content = document.getElementById(contentId);
+    if (!content) return;
+
+    deactivateAllButtons();
+    hideAllContents();
+
+    btn.classList.remove('bg-white', 'text-gray-700', 'border');
+    btn.classList.add('bg-indigo-600', 'text-white');
+    content.classList.remove('hidden');
+
+    // اجرای محاسبات مربوطه
+    if (btnId === 'tabCheque' && typeof computeChequeFn === 'function') {
+      setTimeout(computeChequeFn, 10);
+    }
+
+    if (btnId === 'tabWelfare' && typeof computeWelfareFn === 'function') {
+      setTimeout(computeWelfareFn, 10);
+    }
+  });
+
+  // فعال‌سازی تب پیش‌فرض (اولین تب موجود)
+  setTimeout(() => {
+    possibleButtons[0].click();
+  }, 50);
+}
