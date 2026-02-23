@@ -13,11 +13,11 @@ const CONSTANTS = {
   PRICE_THRESHOLD: 2000000000,
   // سقف‌های جدید
   THRESHOLD_A: 5000000000,              // ۵ میلیارد
-  THRESHOLD_B: 7600000000,              // ۷٫۶ میلیارد
+  THRESHOLD_B: 7500000000,              // ۷٫۶ میلیارد
   
   // اعتبار ثابت در حالت‌های خاص
   FIXED_CREDIT_30M_MID: 5100000000,     // برای تب ۳۰ در بازه <۵ میلیارد
-  FIXED_CREDIT_36M_MID: 7610000000,     // برای تب ۳۶ در بازه <۵ و بین ۵ تا ۷٫۶
+  FIXED_CREDIT_36M_MID: 7600000000,     // برای تب ۳۶ در بازه <۵ و بین ۵ تا ۷٫۶
   
   INSTALLMENT_FACTORS: {
     LOW: 0.052409654285714286,
@@ -1238,3 +1238,4 @@ function setupTabs(computeChequeFn = null, computeWelfareFn = null) {
     possibleButtons[0].click();
   }, 50);
 }
+
