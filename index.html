@@ -221,14 +221,14 @@ if (loanAmount <= 5000000000) {
     installmentPeriod = 'اقساط ۳۶ ماهه';
 }
             
-            let conditions = '';
+let conditions = '';
 
             if (creditRating === 'AB') { // رتبه A یا B
                 if (loanAmount <= 2000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون ضامن) یا سفته الکترونیکی (یک ضامن با رتبه اعتباری A، B یا C)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
+                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی  یا سفته الکترونیکی - بدون نیاز به ضامن\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
                 }
                 else if (loanAmount >= 2100000000 && loanAmount <= 5000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون نیاز به ضامن)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
+                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون نیاز به ضامن) یا سفته الکترونیکی با یک ضامن\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
                 }
                 else if (loanAmount > 5000000000) {
                     conditions = `${installmentPeriod}\n- یک فقره چک صیادی + یک ضامن (با رتبه اعتباری A، B یا C)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
@@ -236,13 +236,13 @@ if (loanAmount <= 5000000000) {
             }
             else if (creditRating === 'CD') { // رتبه C یا D
                 if (loanAmount <= 2000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون ضامن)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
+                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون ضامن) یا سفته الکترونیکی با ضامن A,B\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
                 }
                 else if (loanAmount >= 2100000000 && loanAmount <= 5000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + یک ضامن (با رتبه اعتباری A، B یا C)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
+                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + یک ضامن A,B\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
                 }
                 else if (loanAmount >= 5100000000 && loanAmount <= 7500000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + دو ضامن (با رتبه اعتباری A، B یا C)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
+                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + دو ضامن A,B\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
                 }
                 else if (loanAmount > 7500000000) {
                     conditions = 'مبلغ اعتبار درخواستی بیشتر از رتبه شما است';
@@ -285,3 +285,4 @@ loanInput.addEventListener("input", function () {
 </body>
 
 </html>
+
