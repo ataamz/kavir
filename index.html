@@ -4,19 +4,17 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>لیست قیمت محصولات</title>
-  <!-- Tailwind CDN -->
-   <script src="scripts/tailwindcss.js"></script>
+  <script src="scripts/jquery-4.0.0.min.js"></script>
+  <script src="scripts/tailwindcss.js"></script>
   <style>
-    /* Small customizations */
     @font-face {
-  font-family: "Vazirmatn";
-  src:
-    url("scripts/Vazirmatn-Medium.ttf") format("truetype");
-  }
+      font-family: "Vazirmatn";
+      src: url("scripts/Vazirmatn-Medium.ttf") format("truetype");
+    }
 
     body { background: #eef2f7; font-family: 'Vazirmatn', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; }
     .glass { background: #ffffff; box-shadow: 0 6px 18px rgba(15,23,42,0.06); }
-    /* Modal vertical position for mobile */
+    
     @media (max-width: 640px) {
       #modal {
         align-items: flex-start !important;
@@ -24,56 +22,53 @@
       #modal > div {
         margin-top: 5vh !important;
       }
-	  #rating-modal > div {
+      #rating-modal > div {
         margin-top: -5vh !important;
       }
     }
 
-/* Target Input */
-.generator-input {
-  -webkit-appearance: none;
-  width: 100%;
-  background: transparent;
-  cursor: pointer;
-}
+    .generator-input {
+      -webkit-appearance: none;
+      width: 100%;
+      background: transparent;
+      cursor: pointer;
+    }
 
-/* --- Webkit Browsers --- */
-.generator-input::-webkit-slider-runnable-track {
-  height: 2px;
-  background: linear-gradient(to right, #6366f1 var(--range-pct, 0%), #c0c0c0 var(--range-pct, 0%));
-  border-radius: 40px;
-  border: 0px solid #cbd5e1;
-  box-shadow: 0px 2px 0px rgba(0, 0, 0, 0);
-}
+    .generator-input::-webkit-slider-runnable-track {
+      height: 2px;
+      background: linear-gradient(to right, #6366f1 var(--range-pct, 0%), #c0c0c0 var(--range-pct, 0%));
+      border-radius: 40px;
+      border: 0px solid #cbd5e1;
+      box-shadow: 0px 2px 0px rgba(0, 0, 0, 0);
+    }
 
-.generator-input::-webkit-slider-thumb {
-  -webkit-appearance: none;
-  height: 15px;
-  width: 15px;
-  background: #4f46e5;
-  border-radius: 30px;
-  border: 0px solid #996515;
-  box-shadow: 0px 4px 0px rgba(212, 175, 55, 0);
-  margin-top: -6.5px;
-}
+    .generator-input::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      height: 15px;
+      width: 15px;
+      background: #4f46e5;
+      border-radius: 30px;
+      border: 0px solid #996515;
+      box-shadow: 0px 4px 0px rgba(212, 175, 55, 0);
+      margin-top: -6.5px;
+    }
 
-/* --- Firefox --- */
-.generator-input::-moz-range-track {
-  height: 2px;
-  background: linear-gradient(to right, #6366f1 var(--range-pct, 0%), #c0c0c0 var(--range-pct, 0%));
-  border-radius: 40px;
-  border: 0px solid #cbd5e1;
-  box-shadow: 0px 2px 0px rgba(0, 0, 0, 0);
-}
+    .generator-input::-moz-range-track {
+      height: 2px;
+      background: linear-gradient(to right, #6366f1 var(--range-pct, 0%), #c0c0c0 var(--range-pct, 0%));
+      border-radius: 40px;
+      border: 0px solid #cbd5e1;
+      box-shadow: 0px 2px 0px rgba(0, 0, 0, 0);
+    }
 
-.generator-input::-moz-range-thumb {
-  height: 15px;
-  width: 15px;
-  background: #4f46e5;
-  border-radius: 30px;
-  border: 0px solid #996515;
-  box-shadow: 0px 4px 0px rgba(212, 175, 55, 0);
-}
+    .generator-input::-moz-range-thumb {
+      height: 15px;
+      width: 15px;
+      background: #4f46e5;
+      border-radius: 30px;
+      border: 0px solid #996515;
+      box-shadow: 0px 4px 0px rgba(212, 175, 55, 0);
+    }
   </style>
   <link rel="icon" type="image/png" href="scripts/icon.png"/>
 </head>
@@ -86,11 +81,9 @@
       </div>
 
       <div class="relative xs:w-2/6 xl:w-1/6 md:contents">
-		  <button id="rating" class="cursor-pointer px-4 py-2 md:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md font-medium w-32 md:w-40 float-left mb-2 md:mb-0">شرایط باجت</button>
-          <button id="customPrice" class="cursor-pointer px-4 py-2 md:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md font-medium w-32 md:w-40 float-left md:mr-2">محاسبه</button>
+        <button id="rating" class="cursor-pointer px-4 py-2 md:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md font-medium w-32 md:w-40 float-left mb-2 md:mb-0">محاسبه</button>
+        <!---button id="customPrice" class="cursor-pointer px-4 py-2 md:py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg shadow-md font-medium w-32 md:w-40 float-left md:mr-2">محاسبه</button--->
       </div>
-
-      <!-- حذف فرم و دکمه آپلود فایل -->
     </header>
 
     <main class="rounded-xl p-2 xl:p-6">
@@ -104,7 +97,7 @@
     </main>
   </div>
 
-  <!-- Modal -->
+  <!-- Modal اصلی -->
   <div id="modal" class="fixed inset-0 hidden items-center justify-center bg-black bg-opacity-60 p-6">
     <div class="bg-white text-slate-900 rounded-xl max-w-xl w-full p-6 shadow-2xl">
       <div class="flex items-start justify-between mb-4">
@@ -114,146 +107,193 @@
     </div>
   </div>
   
-  <div class="container-rating">
-  <div id="rating-modal" class="fixed inset-0 items-center justify-center bg-black bg-opacity-60 p-6 flex">
-    <div class="bg-white text-slate-900 rounded-xl max-w-xl w-full p-6 shadow-2xl">
-      <div class="flex items-start justify-between mb-4">
-        <button id="closeModal2" aria-label="بستن" class="text-gray-500 hover:text-gray-700">✕</button>
+  <!-- مودال شرایط باجت -->
+  <div class="container-rating" style="display: none;">
+    <div id="rating-modal" class="fixed inset-0 items-center justify-center bg-black bg-opacity-60 p-6 hidden">
+      <div class="bg-white text-slate-900 rounded-xl max-w-xl w-full p-6 shadow-2xl">
+        <div class="flex items-start justify-between mb-4">
+          <button id="closeModal2" aria-label="بستن" class="text-gray-500 hover:text-gray-700">✕</button>
+        </div>
+        
+        <div class="mb-4 text-lg font-medium" style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;margin-top:-10px;">محاسبه با مبلغ دلخواه</div>
+        
+        <div class="form-group">
+          <label for="creditRating" class="text-base text-gray-600">رتبه اعتباری:</label>
+          <select id="creditRating" class="text-base text-gray-900" style="width:110px; border:1px solid #80808073; border-radius:5px; padding:5px; margin:10px;">
+            <option value="">انتخاب کنید</option>
+            <option value="AB">A یا B</option>
+            <option value="CD">C یا D</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label for="loanAmount" class="text-base text-gray-600">مبلغ اعتبار :</label>
+          <input type="text" id="loanAmount" inputmode="numeric" onclick="this.select()" style="width:60%; border:1px solid #80808073; border-radius:5px; padding:5px; margin:10px;">
+        </div>
+        
+        <div id="result" class="result-section">
+          <div id="tabs-container" class="tabs-container" style="display: none;">
+            <div id="tabs-header" class="tabs-header"></div>
+            <div id="tabs-content" class="tabs-content"></div>
+          </div>
+          <div id="resultText" class="result-text" style="width:100%; background:#dcdcdc6b; padding:2%; border-radius:10px; margin-top:7px; line-height:30px;"></div>
+        </div>
       </div>
-	  
-		<div class="mb-4 text-lg font-medium" style="border-bottom:1px solid #e5e7eb;padding-bottom:10px;margin-top:-10px;">بررسی شرایط باجت</div>
-        <div class="form-group">
-            <label for="creditRating" class="text-base text-gray-600">رتبه اعتباری:</label>
-            <select id="creditRating" class="text-base text-gray-900" style="width:85px">
-                <option value="AB">A یا B</option>
-                <option value="CD">C یا D</option>
-            </select>
-        </div>
-
-        <div class="form-group">
-            <label for="loanAmount" class="text-base text-gray-600">مبلغ اعتبار :</label>
-            <input type="text" id="loanAmount" inputmode="numeric" onclick="this.select()">
-        </div>
-
-        <div class="result" id="result">
-            <div class="result-title text-base text-gray-600" >نتیجه بررسی:</div>
-            <div class="result-text" id="resultText">لطفاً رتبه اعتباری و مبلغ درخواستی را وارد کنید</div>
-        </div>
     </div>
-	</div>
-    </div>
+  </div>
+  
+  <style>
+    .container-rating select, .container-rating input { 
+      border: 1px solid #80808073;
+      border-radius: 5px;
+      padding: 5px;
+      margin: 10px;
+    }
+    .container-rating input { width:60%; }
+    *:focus { outline: none; }
+    
+    .loan-calculator {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      font-family: 'IRANSans', Tahoma, Arial, sans-serif;
+      direction: rtl;
+    }
+    
+    .input-section {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+    }
+    
+    .form-group label {
+      margin-bottom: 5px;
+      font-weight: bold;
+      color: #333;
+    }
+    
+    .result-section {
+      margin-top: 20px;
+    }
+    
+    .tabs-container {
+      overflow: hidden;
+    }
+    
+    .tabs-header {
+      display: flex;
+      gap: 10px;
+    }
+    
+    .tab-button {
+      padding:0.5rem 0.75rem 0.5rem 0.75rem;
+      background: transparent;
+      border: 1px solid #e5e7eb;
+      cursor: pointer;
+      font-size: 16px;
+      color: #374151;
+      transition: all 0.3s;
+      position: relative;
+      font-family: inherit;
+	  border-radius:5px;
+    }
+    
+    .tab-button.active {
+      color: #ffffff;
+	  border: 1px solid #4f48e5;
+	  background-color: #4f48e5;
+    }
+    
+    .tab-panel {
+      display: none;
+      line-height: 2;
+    }
+    
+    .tab-panel.active {
+      display: block;
+    }
+    
+    .loan-detail {
+      border-radius: 8px;
+      margin-top: 20px;
+    }
 	
-<style>
-.container-rating select, .container-rating input{ 
-	border: 1px solid #80808073;
-    border-radius: 5px;
-    padding: 5px;
-    margin: 10px;
-}
-.container-rating input {width:60%;}
-.result-text {
-	width: 100%;
-    background: #dcdcdc6b;
-    padding: 2%;
-    border-radius: 10px;
-    margin-top: 7px;
-	line-height:30px;
-}
-*:focus {
-    outline: none;
-}
-</style>
+	.loan-detail p {
+	color: #374151;
+	border-bottom: 1px solid #e5e7eb;
+	padding:5px 0;
+	text-align:end;}
+	
+	.loan-detail p:last-child {border:0;}
+	
+	.loan-detail strong {margin-left:5px; color:#4b5563; font-weight:normal; float:right;}
+    
+  </style>
+  
   <script src="scripts/app.js"></script>
   <script>
-  // مخفی کردن المان در ابتدا
-document.querySelector('.container-rating').style.display = 'none';
-
-// نمایش با کلیک روی rating#
-document.querySelector('#rating').addEventListener('click', function() {
-    document.querySelector('.container-rating').style.display = 'block';
-});
-
-// مخفی کردن با کلیک روی closeModal2#
-document.querySelector('#closeModal2').addEventListener('click', function() {
-    document.querySelector('.container-rating').style.display = 'none';
-	document.querySelector('#loanAmount').value = '';
-	document.querySelector('#resultText').innerText = 'لطفاً مبلغ را وارد کنید';
-});
-  
-  document.getElementById('creditRating').addEventListener('change', calculateLoan);
-        document.getElementById('loanAmount').addEventListener('input', calculateLoan);
-
-        function roundUpToNearestTenMillion(amount) {
-            // گرد کردن به بالا به نزدیکترین 10 میلیون (هر 10 میلیون = 10,000,000)
-            return Math.ceil(amount / 10000000) * 10000000;
-        }
-
-        function calculateLoan() {
-            const creditRating = document.getElementById('creditRating').value;
-            const loanAmount = parseFloat(document.getElementById('loanAmount').value);
-            const resultText = document.getElementById('resultText');
-            
-            if (!creditRating) {
-                resultText.innerText = 'لطفاً رتبه اعتباری را انتخاب کنید';
-                return;
-            }
-
-            if (isNaN(loanAmount) || loanAmount <= 0) {
-                resultText.innerText = 'لطفاً مبلغ را وارد کنید';
-                return;
-            }
-
-            // محاسبه سپرده به ریال
-            let depositRial = (loanAmount / 1000000000) * 75000000;
-            
-            // گرد کردن به بالا به نزدیکترین 10 میلیون
-            let roundedDeposit = depositRial + 10000000;
-            
-            // فرمت کردن عدد با جداکننده هزارگان
-            let formattedDeposit = roundedDeposit.toLocaleString('fa-IR');
-			
-			let installmentPeriod = '';
-if (loanAmount <= 5000000000) {
-    installmentPeriod = 'اقساط ۲۴ ماهه';
-} else if (loanAmount > 5000000000 && loanAmount <= 7500000000) {
-    installmentPeriod = 'اقساط ۳۰ ماهه';
-} else if (loanAmount > 7500000000) {
-    installmentPeriod = 'اقساط ۳۶ ماهه';
-}
-            
-let conditions = '';
-
-            if (creditRating === 'AB') { // رتبه A یا B
-                if (loanAmount <= 2000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی  یا سفته الکترونیکی - بدون نیاز به ضامن\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
-                }
-                else if (loanAmount >= 2100000000 && loanAmount <= 5000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون نیاز به ضامن) یا سفته الکترونیکی با یک ضامن\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
-                }
-                else if (loanAmount > 5000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + یک ضامن (با رتبه اعتباری A، B یا C)\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
-                }
-            }
-            else if (creditRating === 'CD') { // رتبه C یا D
-                if (loanAmount <= 2000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی (بدون ضامن) یا سفته الکترونیکی با ضامن A,B\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
-                }
-                else if (loanAmount >= 2100000000 && loanAmount <= 5000000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + یک ضامن A,B\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
-                }
-                else if (loanAmount >= 5100000000 && loanAmount <= 7500000000) {
-                    conditions = `${installmentPeriod}\n- یک فقره چک صیادی + دو ضامن A,B\n- سپرده + قرارداد: ${formattedDeposit} ریال`;
-                }
-                else if (loanAmount > 7500000000) {
-                    conditions = 'مبلغ اعتبار درخواستی بیشتر از رتبه شما است';
-                }
-            }
-
-            resultText.innerText = conditions;
-        }
-
-
-document.addEventListener('keydown', (event) => {
+    // متغیر سراسری برای مقدار عددی
+    let numericLoanAmount = 0;
+    
+    // مدیریت مودال
+    document.addEventListener('DOMContentLoaded', function() {
+      // اطمینان از مخفی بودن مودال در ابتدا
+      document.querySelector('.container-rating').style.display = 'none';
+      document.getElementById('rating-modal').classList.add('hidden');
+      
+      // نمایش مودال با کلیک روی دکمه rating
+      document.getElementById('rating').addEventListener('click', function() {
+        document.querySelector('.container-rating').style.display = 'block';
+        document.getElementById('rating-modal').classList.remove('hidden');
+        document.getElementById('rating-modal').classList.add('flex');
+        
+        // مقداردهی اولیه
+        setTimeout(calculateLoan, 100);
+      });
+      
+      // بستن مودال
+      document.getElementById('closeModal2').addEventListener('click', function() {
+        document.querySelector('.container-rating').style.display = 'none';
+        document.getElementById('rating-modal').classList.add('hidden');
+        document.getElementById('rating-modal').classList.remove('flex');
+        document.getElementById('loanAmount').value = '';
+        document.getElementById('resultText').innerText = 'لطفاً مبلغ را وارد کنید';
+        document.getElementById('resultText').style.display = 'block';
+        document.getElementById('tabs-container').style.display = 'none';
+        numericLoanAmount = 0;
+      });
+    });
+    
+    // توابع کمکی
+    function formatNumberWithCommas(number) {
+      return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+    }
+    
+    function parseNumberWithCommas(str) {
+      if (!str) return NaN;
+      return parseFloat(str.replace(/,/g, '')) || NaN;
+    }
+    
+    // رویدادهای ورودی
+    document.getElementById('creditRating').addEventListener('change', calculateLoan);
+    
+    document.getElementById('loanAmount').addEventListener('input', function(e) {
+      let value = this.value.replace(/,/g, '').replace(/\D/g, '');
+      
+      if (value) {
+        numericLoanAmount = parseFloat(value);
+        this.value = formatNumberWithCommas(value);
+      } else {
+        numericLoanAmount = 0;
+        this.value = '';
+      }
+      
+      calculateLoan();
+    });
+    
+    // رویداد Enter
+    document.addEventListener('keydown', (event) => {
     if(event.target.matches('#loanAmount') && event.key === 'Enter') {
         event.preventDefault();
         let value = event.target.value.trim();
@@ -264,25 +304,257 @@ document.addEventListener('keydown', (event) => {
         }
     }
 });
-
-const loanAmount = parseFloat(
-  document.getElementById('loanAmount').value.replace(/,/g, '')
-);
-
-const loanInput = document.getElementById("loanAmount");
-
-loanInput.addEventListener("input", function () {
-  let value = this.value.replace(/,/g, "").replace(/\D/g, "");
-
-  if (!value) {
-    this.value = "";
-    return;
-  }
-
-  this.value = value.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
-});
+    
+    function roundUpToNearestTenMillion(amount) {
+      return Math.ceil(amount / 10000000) * 10000000;
+    }
+    
+    function calculateLoan() {
+      const creditRating = document.getElementById('creditRating').value;
+      const loanAmount = numericLoanAmount; // استفاده از متغیر عددی
+      const resultText = document.getElementById('resultText');
+      const tabsContainer = document.getElementById('tabs-container');
+      const tabsHeader = document.getElementById('tabs-header');
+      const tabsContent = document.getElementById('tabs-content');
+      
+      // اعتبارسنجی
+      if (!creditRating || isNaN(loanAmount) || loanAmount <= 0) {
+        resultText.style.display = 'block';
+        tabsContainer.style.display = 'none';
+        
+        if (!creditRating && !loanAmount) {
+          resultText.innerText = 'لطفاً رتبه اعتباری و مبلغ را وارد کنید';
+        } else if (!creditRating) {
+          resultText.innerText = 'لطفاً رتبه اعتباری را انتخاب کنید';
+        } else if (isNaN(loanAmount) || loanAmount <= 0) {
+          resultText.innerText = 'لطفاً مبلغ معتبر وارد کنید';
+        }
+        return;
+      }
+      
+      // ضرایب اقساط
+      const INSTALLMENT_RATE_24 = 0.052409654285714286;
+      const INSTALLMENT_RATE_30 = 0.044007776364;
+      const INSTALLMENT_RATE_36 = 0.038436601647058824;
+      
+      const FIXED_AMOUNT_30 = 5100000000;
+      const FIXED_AMOUNT_36 = 7600000000;
+	  const ADDPRICE = 10000000;
+      
+      let allConditions = [];
+      
+      // بقیه منطق شرطی (همان کد قبلی)
+      if (creditRating === 'AB') {
+        if (loanAmount <= 2000000000) {
+          allConditions.push({
+            period: '24 ماهه',
+            guarantor: 'یک فقره چک صیادی یا سفته الکترونیکی (بدون ضامن)',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_24,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '30 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: FIXED_AMOUNT_30,
+            installment: loanAmount * INSTALLMENT_RATE_30,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_30 / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: FIXED_AMOUNT_36,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_36 / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+        // ... بقیه شرط‌ها (مشابه کد قبلی)
+        else if (loanAmount >= 2100000000 && loanAmount <= 5000000000) {
+          allConditions.push({
+            period: '24 ماهه',
+            guarantor: 'یک فقره چک صیادی(بدون ضامن) یا سفته الکترونیکی + یک ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_24,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '30 ماهه',
+            guarantor: 'یک فقره چک صیادی (بدون ضامن) یا سفته الکترونیکی + یک ضامن',
+            loanAmount: FIXED_AMOUNT_30,
+            installment: loanAmount * INSTALLMENT_RATE_30,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_30 / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: FIXED_AMOUNT_36,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_36 / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+        else if (loanAmount >= 5100000000 && loanAmount <= 7500000000) {
+          allConditions.push({
+            period: '30 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_30,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: FIXED_AMOUNT_36,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+        else if (loanAmount > 7500000000) {
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+      }
+      else if (creditRating === 'CD') {
+        if (loanAmount <= 2000000000) {
+          allConditions.push({
+            period: '24 ماهه',
+            guarantor: 'یک فقره چک صیادی یا سفته الکترونیکی + یک ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_24,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '30 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: FIXED_AMOUNT_30,
+            installment: loanAmount * INSTALLMENT_RATE_30,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_30 / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: FIXED_AMOUNT_36,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_36 / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+        else if (loanAmount >= 2100000000 && loanAmount <= 5000000000) {
+          allConditions.push({
+            period: '24 ماهه',
+            guarantor: 'یک فقره چک صیادی + یک ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_24,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '30 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: FIXED_AMOUNT_30,
+            installment: loanAmount * INSTALLMENT_RATE_30,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_30 / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: FIXED_AMOUNT_36,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((FIXED_AMOUNT_36 / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+        else if (loanAmount >= 5100000000 && loanAmount <= 7500000000) {
+          allConditions.push({
+            period: '30 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_30,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+          
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: FIXED_AMOUNT_36,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+        else if (loanAmount > 7500000000) {
+          allConditions.push({
+            period: '36 ماهه',
+            guarantor: 'یک فقره چک صیادی + دو ضامن',
+            loanAmount: loanAmount,
+            installment: loanAmount * INSTALLMENT_RATE_36,
+            deposit: roundUpToNearestTenMillion((loanAmount / 1000000000) * 75000000 + ADDPRICE)
+          });
+        }
+      }
+      
+      // نمایش نتایج
+      if (allConditions.length > 0) {
+        resultText.style.display = 'none';
+        tabsContainer.style.display = 'block';
+        
+        tabsHeader.innerHTML = '';
+        tabsContent.innerHTML = '';
+        
+        allConditions.forEach((condition, index) => {
+          const tabButton = document.createElement('button');
+          tabButton.className = `tab-button ${index === 0 ? 'active' : ''}`;
+          tabButton.textContent = condition.period;
+          tabButton.onclick = () => switchTab(index);
+          tabsHeader.appendChild(tabButton);
+          
+          const tabPanel = document.createElement('div');
+          tabPanel.className = `tab-panel ${index === 0 ? 'active' : ''}`;
+          tabPanel.id = `tab-${index}`;
+          
+          const formattedLoanAmount = condition.loanAmount.toLocaleString('en-US');
+          const formattedInstallment = Math.ceil(condition.installment).toLocaleString('en-US');
+          const formattedDeposit = Math.ceil(condition.deposit).toLocaleString('en-US');
+          
+          tabPanel.innerHTML = `
+            <div class="loan-detail">
+              <p><strong>شرط وام</strong> ${condition.guarantor}</p>
+              <p><strong>مبلغ وام</strong> ${formattedLoanAmount} ریال</p>
+              <p><strong>مبلغ هر قسط</strong> ${formattedInstallment} ریال</p>
+              <p><strong>مبلغ سپرده</strong> ${formattedDeposit} ریال</p>
+            </div>
+          `;
+          
+          tabsContent.appendChild(tabPanel);
+        });
+      } else {
+        resultText.innerText = 'برای این ترکیب رتبه اعتباری و مبلغ، شرایطی تعریف نشده است';
+        tabsContainer.style.display = 'none';
+        resultText.style.display = 'block';
+      }
+    }
+    
+    // تابع تغییر تب
+    function switchTab(index) {
+      document.querySelectorAll('.tab-button').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      document.querySelectorAll('.tab-panel').forEach(panel => {
+        panel.classList.remove('active');
+      });
+      
+      document.querySelectorAll('.tab-button')[index].classList.add('active');
+      document.getElementById(`tab-${index}`).classList.add('active');
+    }
   </script>
 </body>
-
 </html>
-
